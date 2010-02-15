@@ -1,6 +1,5 @@
 (require 'asdf)
 (asdf:oos 'asdf:load-op 'clx)
-(shadow 'char-width)
 (use-package :xlib)
 (defparameter *mods*    '(:mod-1))      ; :mod-4 for windows key
 (defparameter *move*    '(1))
@@ -26,7 +25,7 @@
              ;; for key-press and key-release, code is the keycode
              ;; for button-press and button-release, code is the button number
              (:button-press 
-              (code child event-window)
+              (code child)
               (cond ((member code *raise*)
                      (circulate-window-up root))
                     ((member code *lower*)
