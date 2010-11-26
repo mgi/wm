@@ -68,7 +68,9 @@
                        (setf (drawable-width event-window) new-w
                              (drawable-height event-window) new-h)))))
              (:button-release ()
-                              (ungrab-pointer display)))))
+                              (ungrab-pointer display))
+             (:configure-notify t)
+             (:exposure t))))
       (dolist (button (list *move* *resize* *lower* *raise*))
         (mapcar #'(lambda (b)
                     (ungrab-button root b :modifiers *mods*))
