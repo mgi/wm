@@ -50,9 +50,12 @@
                      (when child        ; do nothing if we're not over a window
                        (setf last-button code)
                        (grab-pointer child '(:pointer-motion :button-release))
-                       (let ((lst (multiple-value-list (query-pointer root))))
-                         (setf last-x (sixth   lst)
-                               last-y (seventh lst)))))))
+                       (if (member code *move*)
+                           (let ((lst (multiple-value-list (query-pointer root))))
+                             (setf last-x (sixth   lst)
+                                   last-y (seventh lst)))
+                         (setf last-x (+ (drawable-x child) (drawable-width child))
+                               last-y (+ (drawable-y child) (drawable-height child))))))))
              (:motion-notify
               (event-window root-x root-y)
               (cond ((member last-button *move*)
