@@ -1,16 +1,20 @@
 #!/usr/local/bin/sbcl --script
-;;; Load CLX stuff
+;;; Most simple window manager on earth. It is a fork from the lisp
+;;; version of tinywm.
+
+;; Load CLX stuff
 (require 'asdf)
 (asdf:oos 'asdf:load-op 'clx)
 (use-package :xlib)
 
-;;; Most simple window manager on earth (fork from the lisp version of
-;;; tinywm).
+;; Global parameters
 (defparameter *mods* '(:mod-1))      ; :mod-4 for windows key
 (defparameter *move* '(1))
 (defparameter *resize* '(2))
 (defparameter *lower* '(3 4))
 (defparameter *raise* '(5))
+(defparameter *f1* #xffbe
+  "F1 keysym.")
 (defparameter *f12* #xffc9
   "F12 keysym.")
 
@@ -25,8 +29,8 @@
                   (grab-button root b '(:button-press) :modifiers *mods*))
               button))
 
-    ;; Grab F12 to launch emacs back
-    (grab-key root (keysym->keycodes display *f12*))
+    ;; Grab shortcut
+    (grab-key root (keysym->keycodes display *f1*))
 
     (unwind-protect
         (let (last-button last-x last-y)
