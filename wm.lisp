@@ -31,18 +31,21 @@
 
     ;; Grab shortcut
     (grab-key root (keysym->keycodes display *f1*))
+    (grab-key root (keysym->keycodes display *f12*))
 
     (unwind-protect
         (let (last-button last-x last-y)
-          (loop
+          (loop named eventloop do
             (event-case 
              (display :discard-p t)
              ;; for key-press and key-release, code is the keycode
              ;; for button-press and button-release, code is the button number
              (:key-press
-              ()
-              ;; Not really portable isn't it
-              (sb-ext:run-program "emacs" nil :wait nil :search t))
+              (code)
+              (cond ((= code (keysym->keycodes display *f1*))
+                     (sb-ext:run-program (posix-getenv "TERM") nil :wait nil :search t))
+                    ((= code (keysym->keycodes display *f12*))
+                     (return-from eventloop))))
              (:button-press 
               (code child)
               (cond ((member code *raise*)
@@ -76,8 +79,8 @@
                              (drawable-height event-window) new-h)))))
              (:button-release ()
                               (ungrab-pointer display))
-             (:configure-notify t)
-             (:exposure t))))
+             (:configure-notify () t)
+             (:exposure () t))))
       (dolist (button (list *move* *resize* *lower* *raise*))
         (mapcar #'(lambda (b)
                     (ungrab-button root b :modifiers *mods*))
