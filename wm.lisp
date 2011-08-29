@@ -43,7 +43,7 @@
              (:key-press
               (code)
               (cond ((= code (keysym->keycodes display *f1*))
-                     (sb-ext:run-program (posix-getenv "TERM") nil :wait nil :search t))
+                     (sb-ext:run-program "xterm" nil :wait nil :search t))
                     ((= code (keysym->keycodes display *f12*))
                      (return-from eventloop))))
              (:button-press 
@@ -77,8 +77,7 @@
                            (new-h (max 1 (- root-y (drawable-y event-window)))))
                        (setf (drawable-width event-window) new-w
                              (drawable-height event-window) new-h)))))
-             (:button-release ()
-                              (ungrab-pointer display))
+             (:button-release () (ungrab-pointer display))
              (:configure-notify () t)
              (:exposure () t))))
       (dolist (button (list *move* *resize* *lower* *raise*))
