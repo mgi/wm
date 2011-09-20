@@ -11,9 +11,11 @@
 (defparameter *mods* '(:control :mod-1) "Global modifiers")
 (defparameter *move* 1 "Mouse button to move a window")
 (defparameter *resize* 2 "Mouse button to resize a window")
-(defparameter *term* (car (character->keysyms #\Return)) "Keysym to launch a terminal")
-(defparameter *quit* (car (character->keysyms #\q)) "Keysym to quit")
-(defparameter *circulate* (car (character->keysyms #\Tab)) "Keysym to circulate windows")
+(defparameter *term* #\Return "Key to launch a terminal")
+(defparameter *web* #\w "Key to launch web browser")
+(defparameter *quit* #\q "Key to quit")
+(defparameter *circulate* #\Tab "Key to circulate windows")
+(defparameter *hide* #\h)
 
 (defun main ()
   (let* ((display (open-display ""))
@@ -25,11 +27,12 @@
       (grab-button root button '(:button-press) :modifiers *mods*))
 
     ;; Grab keyboard shortcuts
-    (dolist (key (list *term* *quit* *circulate*))
-      (grab-key root (keysym->keycodes display key) :modifiers *mods*))
+    (dolist (key (list *term* *web* *quit* *circulate* *hide*))
+      (grab-key root (keysym->keycodes display (car (character->keysyms key)))
+                :modifiers *mods*))
 
     (unwind-protect
-        (let (last-button last-x last-y)
+        (let (last-button last-x last-y hidden)
           (loop named eventloop do
             (event-case 
              (display :discard-p t)
@@ -37,11 +40,22 @@
              ;; for button-press and button-release, code is the button number
              (:key-press
               (code)
-              (cond ((= code (keysym->keycodes display *term*))
+              (cond ((char= (keycode->character display code 0) *term*)
                      (sb-ext:run-program "xterm" nil :wait nil :search t))
-                    ((= code (keysym->keycodes display *circulate*))
+                    ((char= (keycode->character display code 0) *web*)
+                     (sb-ext:run-program "xxxterm" nil :wait nil :search t))
+                    ((char= (keycode->character display code 0) *circulate*)
                      (circulate-window-up root))
-                    ((= code (keysym->keycodes display *quit*))
+                    ((char= (keycode->character display code 0) *hide*)
+                     (cond (hidden
+                            (mapc #'(lambda (w) (map-window w)) hidden)
+                            (setf hidden nil))
+                           (t
+                            (setf hidden (loop for w in (query-tree root)
+                                              when (eql (window-map-state w) :viewable)
+                                              collect w))
+                            (mapc #'(lambda (w) (unmap-window w)) hidden))))
+                    ((char= (keycode->character display code 0) *quit*)
                      (return-from eventloop))))
              (:button-press
               (code child)
@@ -69,7 +83,7 @@
                        (setf (drawable-width event-window) new-w
                              (drawable-height event-window) new-h)))))
              (:button-release () (ungrab-pointer display))
-             ((:configure-notify :exposure) t))))
+             ((:configure-notify :exposure) () t))))
       (dolist (button (list *move* *resize*))
         (ungrab-button root button :modifiers *mods*))
       (dolist (key (list *term* *quit* *circulate*))
