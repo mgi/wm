@@ -4,7 +4,7 @@
 
 ;; Load CLX stuff
 (require 'asdf)
-(asdf:oos 'asdf:load-op :clx)
+(asdf:load-system :clx)
 (use-package :xlib)
 
 ;; Global parameters
