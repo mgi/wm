@@ -10,9 +10,10 @@
 (in-package :most.simple.wm)
 
 ;; Global parameters
-(defparameter *mods* '(:control :mod-1) "Global modifiers")
+(defparameter *key-mod* '(:control :mod-1) "Modifier for keyboard shortcuts")
+(defparameter *mouse-mod* '(:mod-1) "Modifier for mouse control")
 (defparameter *move* 1 "Mouse button to move a window")
-(defparameter *resize* 2 "Mouse button to resize a window")
+(defparameter *resize* 3 "Mouse button to resize a window")
 (defparameter *term* #\Return "Key to launch a terminal")
 (defparameter *web* #\w "Key to launch web browser")
 (defparameter *quit* #\q "Key to quit")
@@ -26,12 +27,12 @@
 
     ;; Grab mouse buttons
     (dolist (button (list *move* *resize*))
-      (grab-button root button '(:button-press) :modifiers *mods*))
+      (grab-button root button '(:button-press) :modifiers *mouse-mod*))
 
     ;; Grab keyboard shortcuts
     (dolist (key (list *term* *web* *quit* *circulate* *hide*))
       (grab-key root (keysym->keycodes display (car (character->keysyms key)))
-                :modifiers *mods*))
+                :modifiers *key-mod*))
 
     (unwind-protect
         (let (last-button last-x last-y hidden)
@@ -87,9 +88,9 @@
              (:button-release () (ungrab-pointer display))
              ((:configure-notify :exposure) () t))))
       (dolist (button (list *move* *resize*))
-        (ungrab-button root button :modifiers *mods*))
+        (ungrab-button root button :modifiers *mouse-mod*))
       (dolist (key (list *term* *quit* *circulate*))
-        (ungrab-key root (keysym->keycodes display key) :modifiers *mods*))
+        (ungrab-key root (keysym->keycodes display key) :modifiers *key-mod*))
       (close-display display))))
 
 (main)
