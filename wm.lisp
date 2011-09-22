@@ -2,10 +2,12 @@
 ;;; Most simple window manager on earth. It is a fork from the lisp
 ;;; version of tinywm.
 
-;; Load CLX stuff
+;; Load CLX and make a package
 (require 'asdf)
 (asdf:load-system :clx)
-(use-package :xlib)
+(defpackage :most.simple.wm
+  (:use :common-lisp :xlib))
+(in-package :most.simple.wm)
 
 ;; Global parameters
 (defparameter *mods* '(:control :mod-1) "Global modifiers")
