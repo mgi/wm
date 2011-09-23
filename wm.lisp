@@ -24,10 +24,8 @@
 (defun key (x) (if (consp x) (cdr x) x))
 
 (defun main ()
-  ;; XXX only parse DISPLAY in ":<display num>" form
-  (let* ((display (open-display "" :display (parse-integer 
-                                             (posix-getenv "DISPLAY") :start 1)))
-         (screen (first (display-roots display)))
+  (let* ((display (open-default-display))
+         (screen (display-default-screen display))
          (root (screen-root screen))
          (kwin (create-window :parent root :x 0 :y 0 :width 1 :height 1)))
 
