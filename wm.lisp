@@ -23,17 +23,11 @@
 (defun mods (x) (if (consp x) (car x) 0))
 (defun key (x) (if (consp x) (cdr x) x))
 
-(defun grab-shortcuts (display)
+(defun apply-shortcuts (display fn)
   (let ((root (screen-root (display-default-screen display))))
     (dolist (key (list *term* *web* *quit* *circulate* *hide*))
       (let ((code (keysym->keycodes display (car (character->keysyms (key key))))))
-        (grab-key root code :modifiers (mods key))))))
-
-(defun ungrab-shortcuts (display)
-  (let ((root (screen-root (display-default-screen display))))
-    (dolist (key (list *term* *web* *quit* *circulate* *hide*))
-      (let ((code (keysym->keycodes display (car (character->keysyms (key key))))))
-        (ungrab-key root code :modifiers (mods key))))))
+        (funcall fn root code :modifiers (mods key))))))
 
 (defun main ()
   (let* ((display (open-default-display))
@@ -76,10 +70,10 @@
                                        (mapc #'(lambda (w) (unmap-window w)) hidden))))
                                ((char= (keycode->character display code 0) (key *quit*))
                                 (return-from eventloop)))
-                         (ungrab-shortcuts display)
+                         (apply-shortcuts display #'ungrab-key)
                          (setf waiting-shortcut nil))
                         ((char= (keycode->character display code 0) (key *prefix*))
-                         (grab-shortcuts display)
+                         (apply-shortcuts display #'grab-key)
                          (setf waiting-shortcut t))))
                  (:button-press
                   (code child)
