@@ -36,17 +36,17 @@ example: (compile-shortcut '(:control #\t)) -> (4 . 44)"
     `(let ((,sc (compile-shortcut ',key)))
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
-(defshortcut (#\c) (sb-ext:run-program "xterm" nil :wait nil :search t))
-(defshortcut (#\e) (sb-ext:run-program "emacs" nil :wait nil :search t))
-(defshortcut (#\w) (sb-ext:run-program "xxxterm" nil :wait nil :search t))
+(defshortcut (#\c) (run-program "xterm" nil :wait nil :search t))
+(defshortcut (#\e) (run-program "emacs" nil :wait nil :search t))
+(defshortcut (#\w) (run-program "xxxterm" nil :wait nil :search t))
 (defshortcut (#\n) (circulate-window-down *root*))
 
 ;;; Modifier keypress avoidance code
-(defvar *all-modifiers* (multiple-value-call #'append (modifier-mapping *display*)))
+(defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
 
 (defun is-modifier (keycode)
   "Return t if keycode is a modifier"
-  (find keycode *all-modifiers* :test 'eql))
+  (find keycode *mods-code* :test 'eql))
 
 ;;; Main
 (defun main ()
