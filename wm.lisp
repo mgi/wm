@@ -41,6 +41,14 @@ example: (compile-shortcut '(:control #\t)) -> (4 . 44)"
 (defshortcut (#\w) (sb-ext:run-program "xxxterm" nil :wait nil :search t))
 (defshortcut (#\n) (circulate-window-down *root*))
 
+;;; Modifier keypress avoidance code
+(defvar *all-modifiers* (multiple-value-call #'append (modifier-mapping *display*)))
+
+(defun is-modifier (keycode)
+  "Return t if keycode is a modifier"
+  (find keycode *all-modifiers* :test 'eql))
+
+;;; Main
 (defun main ()
   ;; Grab mouse buttons
   (dolist (button (list *move* *resize*))
@@ -51,20 +59,21 @@ example: (compile-shortcut '(:control #\t)) -> (4 . 44)"
     (grab-key *root* code :modifiers (mods *prefix*)))
 
   (unwind-protect
-       (let (last-button last-x last-y hidden waiting-shortcut)
+       (let (last-button last-x last-y waiting-shortcut)
          (loop named eventloop do
               (event-case 
                   (*display* :discard-p t)
                 (:key-press
-                 (code state window)
+                 (code state)
                  (cond (waiting-shortcut
-                        (let ((entry (assoc (cons state code) *shortcuts* :test #'equal)))
-                          (when entry
-                            (let ((fn (cdr entry)))
-                              (cond ((functionp fn) (funcall fn))
-                                    ((eq fn 'quit) (return-from eventloop))))))
-                        (ungrab-keyboard *display*)
-                        (setf waiting-shortcut nil))
+                        (unless (is-modifier code)
+                          (let ((entry (assoc (cons state code) *shortcuts* :test #'equal)))
+                            (when entry
+                              (let ((fn (cdr entry)))
+                                (cond ((functionp fn) (funcall fn))
+                                      ((eq fn 'quit) (return-from eventloop))))))
+                          (ungrab-keyboard *display*)
+                          (setf waiting-shortcut nil)))
                        ((equal (cons state code) (compile-shortcut *prefix*))
                         (grab-keyboard *root*)
                         (setf waiting-shortcut t))))
