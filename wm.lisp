@@ -50,65 +50,64 @@ example: (compile-shortcut '(:control #\t)) -> (4 . 44)"
 
 ;;; Main
 (defun main ()
-  ;; Grab mouse buttons
-  (dolist (button (list *move* *resize*))
-    (grab-button *root* button '(:button-press) :modifiers *mouse-mod*))
+  (let ((prefix (compile-shortcut *prefix*))
+        last-button last-x last-y waiting-shortcut)
 
-  ;; Grab prefix
-  (let ((code (keysym->keycodes *display* (car (character->keysyms (kchar *prefix*))))))
-    (grab-key *root* code :modifiers (mods *prefix*)))
+    ;; Grab mouse buttons
+    (dolist (button (list *move* *resize*))
+      (grab-button *root* button '(:button-press) :modifiers *mouse-mod*))
 
-  (unwind-protect
-       (let ((prefix (compile-shortcut *prefix*))
-             last-button last-x last-y waiting-shortcut)
+    ;; Grab prefix
+    (grab-key *root* (cdr prefix) :modifiers (mods *prefix*))
+
+    (unwind-protect
          (loop named eventloop do
               (event-case 
-                  (*display* :discard-p t)
-                (:key-press
-                 (code state)
-                 (cond (waiting-shortcut
-                        (unless (is-modifier code)
-                          (let ((entry (assoc (cons state code) *shortcuts* :test #'equal)))
-                            (when entry
-                              (let ((fn (cdr entry)))
-                                (cond ((functionp fn) (funcall fn))
-                                      ((eq fn 'quit) (return-from eventloop))))))
-                          (ungrab-keyboard *display*)
-                          (setf waiting-shortcut nil)))
-                       ((and (= state (car prefix)) (= code (cdr prefix)))
-                        (grab-keyboard *root*)
-                        (setf waiting-shortcut t))))
-                (:button-press
-                 (code child)
-                 (when child        ; do nothing if we're not over a window
-                   (setf last-button code)
-                   (grab-pointer child '(:pointer-motion :button-release))
-                   (when (= code *resize*)
-                     (warp-pointer child (drawable-width child) 
-                                   (drawable-height child)))
-                   (let ((lst (multiple-value-list (query-pointer *root*))))
-                     (setf last-x (sixth lst)
-                           last-y (seventh lst)))))
-                (:motion-notify
-                 (event-window root-x root-y)
-                 (cond ((= last-button *move*)
-                        (let ((delta-x (- root-x last-x))
-                              (delta-y (- root-y last-y)))
-                          (incf (drawable-x event-window) delta-x)
-                          (incf (drawable-y event-window) delta-y)
-                          (incf last-x delta-x)
-                          (incf last-y delta-y)))
-                       ((= last-button *resize*)
-                        (let ((new-w (max 1 (- root-x (drawable-x event-window))))
-                              (new-h (max 1 (- root-y (drawable-y event-window)))))
-                          (setf (drawable-width event-window) new-w
-                                (drawable-height event-window) new-h)))))
-                (:button-release () (ungrab-pointer *display*))
-                ((:configure-notify :exposure) () t))))
-    (dolist (button (list *move* *resize*))
-      (ungrab-button *root* button :modifiers *mouse-mod*))
-    (let ((code (keysym->keycodes *display* (car (character->keysyms (kchar *prefix*))))))
-      (ungrab-key *root* code :modifiers (mods *prefix*)))
-    (close-display *display*)))
+               (*display* :discard-p t)
+               (:key-press
+                (code state)
+                (cond (waiting-shortcut
+                       (unless (is-modifier code)
+                         (let ((entry (assoc (cons state code) *shortcuts* :test #'equal)))
+                           (when entry
+                             (let ((fn (cdr entry)))
+                               (cond ((functionp fn) (funcall fn))
+                                     ((eq fn 'quit) (return-from eventloop))))))
+                         (ungrab-keyboard *display*)
+                         (setf waiting-shortcut nil)))
+                      ((and (= state (car prefix)) (= code (cdr prefix)))
+                       (grab-keyboard *root*)
+                       (setf waiting-shortcut t))))
+               (:button-press
+                (code child)
+                (when child        ; do nothing if we're not over a window
+                  (setf last-button code)
+                  (grab-pointer child '(:pointer-motion :button-release))
+                  (when (= code *resize*)
+                    (warp-pointer child (drawable-width child) 
+                                  (drawable-height child)))
+                  (let ((lst (multiple-value-list (query-pointer *root*))))
+                    (setf last-x (sixth lst)
+                          last-y (seventh lst)))))
+               (:motion-notify
+                (event-window root-x root-y)
+                (cond ((= last-button *move*)
+                       (let ((delta-x (- root-x last-x))
+                             (delta-y (- root-y last-y)))
+                         (incf (drawable-x event-window) delta-x)
+                         (incf (drawable-y event-window) delta-y)
+                         (incf last-x delta-x)
+                         (incf last-y delta-y)))
+                      ((= last-button *resize*)
+                       (let ((new-w (max 1 (- root-x (drawable-x event-window))))
+                             (new-h (max 1 (- root-y (drawable-y event-window)))))
+                         (setf (drawable-width event-window) new-w
+                               (drawable-height event-window) new-h)))))
+               (:button-release () (ungrab-pointer *display*))
+               ((:configure-notify :exposure) () t)))
+      (dolist (button (list *move* *resize*))
+        (ungrab-button *root* button :modifiers *mouse-mod*))
+      (ungrab-key *root* (cdr prefix) :modifiers (mods *prefix*))
+      (close-display *display*))))
 
 (main)
