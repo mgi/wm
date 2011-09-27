@@ -59,7 +59,7 @@ example: (compile-shortcut '(:control #\t)) -> (4 . 44)"
       (grab-button *root* button '(:button-press) :modifiers *mouse-mod*))
 
     ;; Grab prefix
-    (grab-key *root* (cdr prefix) :modifiers (mods *prefix*))
+    (grab-key *root* (cdr prefix) :modifiers (car prefix))
 
     (unwind-protect
          (loop named eventloop do
@@ -108,7 +108,7 @@ example: (compile-shortcut '(:control #\t)) -> (4 . 44)"
                ((:configure-notify :exposure) () t)))
       (dolist (button (list *move* *resize*))
         (ungrab-button *root* button :modifiers *mouse-mod*))
-      (ungrab-key *root* (cdr prefix) :modifiers (mods *prefix*))
+      (ungrab-key *root* (cdr prefix) :modifiers (car prefix))
       (close-display *display*))))
 
 (main)
