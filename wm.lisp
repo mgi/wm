@@ -39,6 +39,7 @@ example: (compile-shortcut '(:control #\t)) -> (4 . 44)"
 (defshortcut (#\c) (run-program "xterm" nil :wait nil :search t))
 (defshortcut (#\e) (run-program "emacs" nil :wait nil :search t))
 (defshortcut (#\w) (run-program "xxxterm" nil :wait nil :search t))
+(defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
 (defshortcut (#\n) (circulate-window-down *root*))
 
 ;;; Modifier keypress avoidance code
