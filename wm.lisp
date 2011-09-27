@@ -59,7 +59,8 @@ example: (compile-shortcut '(:control #\t)) -> (4 . 44)"
     (grab-key *root* code :modifiers (mods *prefix*)))
 
   (unwind-protect
-       (let (last-button last-x last-y waiting-shortcut)
+       (let ((prefix (compile-shortcut *prefix*))
+             last-button last-x last-y waiting-shortcut)
          (loop named eventloop do
               (event-case 
                   (*display* :discard-p t)
@@ -74,7 +75,7 @@ example: (compile-shortcut '(:control #\t)) -> (4 . 44)"
                                       ((eq fn 'quit) (return-from eventloop))))))
                           (ungrab-keyboard *display*)
                           (setf waiting-shortcut nil)))
-                       ((equal (cons state code) (compile-shortcut *prefix*))
+                       ((and (= state (car prefix)) (= code (cdr prefix)))
                         (grab-keyboard *root*)
                         (setf waiting-shortcut t))))
                 (:button-press
