@@ -66,6 +66,8 @@ for mouse button."
     (grab-button *root* (cdr move) '(:button-press) :modifiers (car move))
     (grab-button *root* (cdr resize) '(:button-press) :modifiers (car resize))
 
+    (setf (window-event-mask *root*) '(:substructure-notify))
+
     (unwind-protect
          (loop named eventloop do
               (event-case 
@@ -111,6 +113,10 @@ for mouse button."
                          (setf (drawable-width event-window) new-w
                                (drawable-height event-window) new-h)))))
                (:button-release () (ungrab-pointer *display*))
+               (:map-notify 
+                (window override-redirect-p)
+                (unless override-redirect-p
+                  (set-input-focus *display* window :parent)))
                ((:configure-notify :exposure) () t)))
       (ungrab-button *root* (cdr move) :modifiers (car move))
       (ungrab-button *root* (cdr resize) :modifiers (car resize))
