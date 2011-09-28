@@ -86,7 +86,7 @@ for mouse button."
                        (setf waiting-shortcut t))))
                (:button-press
                 (code state child)
-                (when child        ; do nothing if we're not over a window
+                (when (and child (eql (window-override-redirect child) :off))
                   (setf last-button code)
                   (grab-pointer child '(:pointer-motion :button-release))
                   (when (and (= code (cdr resize))
