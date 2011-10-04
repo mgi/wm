@@ -1,6 +1,6 @@
 #!/usr/local/bin/sbcl --script
-;;; Most simple window manager on earth. It is a fork from the lisp
-;;; version of tinywm.
+;;; Used to be the most simple window manager on earth. It is a fork
+;;; from the lisp version of tinywm.
 
 ;;; Load CLX and make a package
 (require 'asdf)
@@ -24,10 +24,18 @@ for mouse button."
         (let ((c (keysym->keycodes *display* (car (character->keysyms k)))))
           (cons state c))
         (cons state k))))
+(defun state (l) (car l))
+(defun code (l) (cdr l))
 
 (defparameter *shortcuts* 
   (list (cons (compile-shortcut '(:shift #\q)) 'quit))
   "Shortcuts alist initialized with the quit command.")
+
+(defparameter *windows*
+  (member-if #'(lambda (w) (and (eql (window-map-state w) :viewable) 
+                                (eql (window-override-redirect w) :off)))
+             (query-tree *root*))
+  "List of managed windows")
 
 (defmacro defshortcut (key &body body)
   "Define a new shortcut in *shortcuts* alist. The key in this alist
@@ -37,6 +45,19 @@ for mouse button."
     `(let ((,sc (compile-shortcut ',key)))
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
+(defun next (display &optional (way #'1+))
+  (when *windows*
+    (let* ((cw (input-focus display))
+           (ncw (position-if #'(lambda (w) (window-equal w cw)) *windows*))
+           (n (length *windows*))
+           (next (mod (funcall way ncw) n)))
+      (unless (= next ncw)
+        (focus (nth next *windows*))))))
+
+(defun focus (window)
+  (setf (window-priority window) :above)
+  (set-input-focus *display* window :pointer-root))
+
 ;;; User settings
 (defparameter *prefix* '(:control #\t) "Prefix for shortcuts")
 (defparameter *move* '(:mod-1 1) "Mouse button to move a window")
@@ -45,14 +66,15 @@ for mouse button."
 (defshortcut (#\e) (run-program "emacs" nil :wait nil :search t))
 (defshortcut (#\w) (run-program "xxxterm" nil :wait nil :search t))
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
-(defshortcut (#\n) (circulate-window-down *root*))
+(defshortcut (#\n) (next *display*))
+(defshortcut (#\p) (next *display* #'1-))
 
 ;;; Modifier keypress avoidance code
 (defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
 
 (defun is-modifier (keycode)
   "Return t if keycode is a modifier"
-  (find keycode *mods-code* :test 'eql))
+  (find keycode *mods-code* :test #'eql))
 
 ;;; Main
 (defun main ()
@@ -62,9 +84,9 @@ for mouse button."
         last-button last-x last-y waiting-shortcut)
 
     ;; Grab prefix and mouse buttons on root
-    (grab-key *root* (cdr prefix) :modifiers (car prefix))
-    (grab-button *root* (cdr move) '(:button-press) :modifiers (car move))
-    (grab-button *root* (cdr resize) '(:button-press) :modifiers (car resize))
+    (grab-key *root* (code prefix) :modifiers (state prefix))
+    (grab-button *root* (code move) '(:button-press) :modifiers (state move))
+    (grab-button *root* (code resize) '(:button-press) :modifiers (state resize))
 
     (setf (window-event-mask *root*) '(:substructure-notify))
 
@@ -83,7 +105,7 @@ for mouse button."
                                      ((eq fn 'quit) (return-from eventloop))))))
                          (ungrab-keyboard *display*)
                          (setf waiting-shortcut nil)))
-                      ((and (= state (car prefix)) (= code (cdr prefix)))
+                      ((and (= state (state prefix)) (= code (code prefix)))
                        (grab-keyboard *root*)
                        (setf waiting-shortcut t))))
                (:button-press
@@ -91,8 +113,8 @@ for mouse button."
                 (when (and child (eql (window-override-redirect child) :off))
                   (setf last-button code)
                   (grab-pointer child '(:pointer-motion :button-release))
-                  (when (and (= code (cdr resize))
-                             (= state (car resize)))
+                  (when (and (= code (code resize))
+                             (= state (state resize)))
                     (warp-pointer child (drawable-width child) 
                                   (drawable-height child)))
                   (let ((lst (multiple-value-list (query-pointer *root*))))
@@ -113,14 +135,19 @@ for mouse button."
                          (setf (drawable-width event-window) new-w
                                (drawable-height event-window) new-h)))))
                (:button-release () (ungrab-pointer *display*))
-               (:map-notify 
+               (:map-notify
                 (window override-redirect-p)
                 (unless override-redirect-p
-                  (set-input-focus *display* window :parent)))
-               ((:configure-notify :exposure) () t)))
-      (ungrab-button *root* (cdr move) :modifiers (car move))
-      (ungrab-button *root* (cdr resize) :modifiers (car resize))
-      (ungrab-key *root* (cdr prefix) :modifiers (car prefix))
+                  (pushnew window *windows* :test #'window-equal)
+                  (focus window)))
+               (:destroy-notify
+                (window)
+                (setf *windows* (remove window *windows* :test #'window-equal))
+                (when *windows*
+                    (focus (first *windows*))))))
+      (ungrab-button *root* (code move) :modifiers (state move))
+      (ungrab-button *root* (code resize) :modifiers (state resize))
+      (ungrab-key *root* (code prefix) :modifiers (state prefix))
       (close-display *display*))))
 
 (main)
