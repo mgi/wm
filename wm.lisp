@@ -48,15 +48,20 @@ for mouse button."
 (defun next (display &optional (way #'1+))
   (when *windows*
     (let* ((cw (input-focus display))
-           (ncw (position-if #'(lambda (w) (window-equal w cw)) *windows*))
+           (ncw (or (position-if #'(lambda (w) (window-equal w cw)) *windows*) 0))
            (n (length *windows*))
            (next (mod (funcall way ncw) n)))
-      (unless (= next ncw)
-        (focus (nth next *windows*))))))
+      (focus (nth next *windows*)))))
 
 (defun focus (window)
   (setf (window-priority window) :above)
   (set-input-focus *display* window :pointer-root))
+
+(defun toggle-hide ()
+  (dolist (w *windows*)
+    (if (eql (window-map-state w) :viewable)
+        (unmap-window w)
+        (map-window w))))
 
 ;;; User settings
 (defparameter *prefix* '(:control #\t) "Prefix for shortcuts")
@@ -68,6 +73,7 @@ for mouse button."
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
 (defshortcut (#\n) (next *display*))
 (defshortcut (#\p) (next *display* #'1-))
+(defshortcut (#\h) (toggle-hide))
 
 ;;; Modifier keypress avoidance code
 (defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
@@ -142,9 +148,7 @@ for mouse button."
                   (focus window)))
                (:destroy-notify
                 (window)
-                (setf *windows* (remove window *windows* :test #'window-equal))
-                (when *windows*
-                    (focus (first *windows*))))))
+                (setf *windows* (remove window *windows* :test #'window-equal)))))
       (ungrab-button *root* (code move) :modifiers (state move))
       (ungrab-button *root* (code resize) :modifiers (state resize))
       (ungrab-key *root* (code prefix) :modifiers (state prefix))
