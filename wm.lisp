@@ -2,8 +2,12 @@
 ;;; Used to be the most simple window manager on earth. It is a fork
 ;;; from the lisp version of tinywm.
 
-;;; Load CLX and make a package
+;;; Load swank and make a server
 (require 'asdf)
+(asdf:load-system :swank)
+(swank:create-server :port 4005 :dont-close t)
+
+;;; Load CLX and make a package
 (asdf:load-system :clx)
 (defpackage :most.simple.wm
   (:use :common-lisp :xlib :sb-ext))
@@ -37,6 +41,8 @@ for mouse button."
              (query-tree *root*))
   "List of managed windows")
 
+(defparameter *last* nil "Last focused window")
+
 (defmacro defshortcut (key &body body)
   "Define a new shortcut in *shortcuts* alist. The key in this alist
   is in (state . code) form and the associated value is a lambda
@@ -45,17 +51,27 @@ for mouse button."
     `(let ((,sc (compile-shortcut ',key)))
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
-(defun next (display &optional (way #'1+))
+(defun focus (window)
+  (when (and (member window *windows* :test #'window-equal)
+             (eql (window-map-state window) :viewable))
+    (setf *last* (input-focus *display*)
+          (window-priority window) :above)
+    (set-input-focus *display* window :pointer-root)))
+
+(defun next (&optional (way #'1+))
   (when *windows*
-    (let* ((cw (input-focus display))
+    (let* ((cw (input-focus *display*))
            (ncw (or (position-if #'(lambda (w) (window-equal w cw)) *windows*) 0))
            (n (length *windows*))
            (next (mod (funcall way ncw) n)))
       (focus (nth next *windows*)))))
 
-(defun focus (window)
-  (setf (window-priority window) :above)
-  (set-input-focus *display* window :pointer-root))
+(defun flast ()
+  (if *last*
+      (let ((cw (input-focus *display*)))
+        (focus *last*)
+        (setf *last* cw))
+      (setf *last* (input-focus *display*))))
 
 (defun toggle-hide ()
   (dolist (w *windows*)
@@ -71,8 +87,9 @@ for mouse button."
 (defshortcut (#\e) (run-program "emacs" nil :wait nil :search t))
 (defshortcut (#\w) (run-program "xxxterm" nil :wait nil :search t))
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
-(defshortcut (#\n) (next *display*))
-(defshortcut (#\p) (next *display* #'1-))
+(defshortcut (#\n) (next))
+(defshortcut (#\p) (next #'1-))
+(defshortcut (:control #\t) (flast))
 (defshortcut (#\h) (toggle-hide))
 
 ;;; Modifier keypress avoidance code
@@ -148,7 +165,8 @@ for mouse button."
                   (focus window)))
                (:destroy-notify
                 (window)
-                (setf *windows* (remove window *windows* :test #'window-equal)))))
+                (setf *windows* (remove window *windows* :test #'window-equal))
+                (when (window-equal window *last*) (setf *last* nil)))))
       (ungrab-button *root* (code move) :modifiers (state move))
       (ungrab-button *root* (code resize) :modifiers (state resize))
       (ungrab-key *root* (code prefix) :modifiers (state prefix))
