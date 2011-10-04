@@ -68,9 +68,7 @@ for mouse button."
 
 (defun flast ()
   (if *last*
-      (let ((cw (input-focus *display*)))
-        (focus *last*)
-        (setf *last* cw))
+      (focus *last*)
       (setf *last* (input-focus *display*))))
 
 (defun toggle-hide ()
@@ -166,7 +164,9 @@ for mouse button."
                (:destroy-notify
                 (window)
                 (setf *windows* (remove window *windows* :test #'window-equal))
-                (when (window-equal window *last*) (setf *last* nil)))))
+                (if (window-equal window *last*) 
+                    (setf *last* nil)
+                    (focus *last*)))))
       (ungrab-button *root* (code move) :modifiers (state move))
       (ungrab-button *root* (code resize) :modifiers (state resize))
       (ungrab-key *root* (code prefix) :modifiers (state prefix))
