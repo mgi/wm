@@ -34,13 +34,7 @@ for mouse button."
 (defparameter *shortcuts* 
   (list (cons (compile-shortcut '(:shift #\q)) 'quit))
   "Shortcuts alist initialized with the quit command.")
-
-(defparameter *windows*
-  (member-if #'(lambda (w) (and (eql (window-map-state w) :viewable) 
-                                (eql (window-override-redirect w) :off)))
-             (query-tree *root*))
-  "List of managed windows")
-
+(defparameter *windows* nil "List of managed windows")
 (defparameter *last* nil "Last focused window")
 
 (defmacro defshortcut (key &body body)
@@ -51,17 +45,32 @@ for mouse button."
     `(let ((,sc (compile-shortcut ',key)))
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
-(defun focus (window)
-  (when (and (member window *windows* :test #'window-equal)
-             (eql (window-map-state window) :viewable))
+(defun focus-1 (window)
+  (when (eql (window-map-state window) :viewable)
     (setf *last* (input-focus *display*)
           (window-priority window) :above)
-    (set-input-focus *display* window :pointer-root)))
+    (set-input-focus *display* window :pointer-root)
+    (display-finish-output *display*)))
+
+(defun focus (window)
+  (if (listp window)
+      (dolist (w window) (focus-1 w))
+      (focus-1 window)))
+
+(defun win= (a b)
+  (cond ((and (window-p a) (window-p b))
+         (window-equal a b))
+        ((and (listp a) (window-p b))
+         (loop for w in a thereis (window-equal b w)))
+        ((and (listp b) (window-p a))
+         (win= b a))
+        ((and (listp a) (listp b))
+         (loop for w1 in a thereis (loop for w2 in b thereis (window-equal w1 w2))))))
 
 (defun next (&optional (way #'1+))
   (when *windows*
     (let* ((cw (input-focus *display*))
-           (ncw (or (position-if #'(lambda (w) (window-equal w cw)) *windows*) 0))
+           (ncw (or (position-if #'(lambda (w) (win= w cw)) *windows*) 0))
            (n (length *windows*))
            (next (mod (funcall way ncw) n)))
       (focus (nth next *windows*)))))
@@ -77,18 +86,55 @@ for mouse button."
         (unmap-window w)
         (map-window w))))
 
+(defun add-window (window)
+  "Add window to the list of managed windows. Take care of grouping."
+  (let ((grouper (find-if #'(lambda (f) (funcall f window)) *groupers*)))
+    (labels ((radd (item list pred)
+               (cond ((and (null list) (functionp pred))
+                      (list (list item)))
+                     ((null list) (list item))
+                     (t (let ((hd (car list))
+                              (tl (cdr list)))
+                          (cond ((and (listp hd)
+                                      (functionp pred)
+                                      (funcall pred (car hd)))
+                                 (cons (cons item hd) tl))
+                                (t (cons hd (radd item tl pred)))))))))
+      (setf *windows* (radd window *windows* grouper))
+      (find window *windows* :test #'win=))))
+  
+(defun rrem (item list &key (test #'eql))
+  "Recursive remove."
+  (unless (null list)
+    (let* ((hd (car list))
+           (tl (cdr list))
+           (rtl (rrem item tl :test test)))
+      (cond ((listp hd)
+             (let ((rhd (rrem item hd :test test)))
+               (if rhd 
+                   (cons rhd rtl)
+                   rtl)))
+            ((funcall test item hd) rtl)
+            (t (cons hd rtl))))))
+
 ;;; User settings
 (defparameter *prefix* '(:control #\t) "Prefix for shortcuts")
 (defparameter *move* '(:mod-1 1) "Mouse button to move a window")
 (defparameter *resize* '(:mod-1 3) "Mouse button to resize a window")
 (defshortcut (#\c) (run-program "xterm" nil :wait nil :search t))
 (defshortcut (#\e) (run-program "emacs" nil :wait nil :search t))
+(defshortcut (:mod-1 #\e) (run-program "envi" nil :wait nil :search t))
 (defshortcut (#\w) (run-program "xxxterm" nil :wait nil :search t))
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
 (defshortcut (#\n) (next))
 (defshortcut (#\p) (next #'1-))
-(defshortcut (:control #\t) (flast))
-(defshortcut (#\h) (toggle-hide))
+;;(defshortcut (:control #\t) (flast))
+;;(defshortcut (#\h) (toggle-hide))
+(defparameter *groupers* (list 
+                          #'(lambda (w) 
+                              (multiple-value-bind (name class) (get-wm-class w) 
+                                (string= class "Idl"))))
+  "List of predicates against which windows are grouped")
 
 ;;; Modifier keypress avoidance code
 (defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
@@ -108,6 +154,12 @@ for mouse button."
     (grab-key *root* (code prefix) :modifiers (state prefix))
     (grab-button *root* (code move) '(:button-press) :modifiers (state move))
     (grab-button *root* (code resize) '(:button-press) :modifiers (state resize))
+
+    ;; Populate list of windows
+    (loop for w in (query-tree *root*) do
+         (when (and (eql (window-map-state w) :viewable) 
+                    (eql (window-override-redirect w) :off))
+           (add-window w)))
 
     (setf (window-event-mask *root*) '(:substructure-notify))
 
@@ -159,14 +211,13 @@ for mouse button."
                (:map-notify
                 (window override-redirect-p)
                 (unless override-redirect-p
-                  (pushnew window *windows* :test #'window-equal)
-                  (focus window)))
+                  (focus (add-window window))))
                (:destroy-notify
                 (window)
-                (setf *windows* (remove window *windows* :test #'window-equal))
-                (if (window-equal window *last*) 
-                    (setf *last* nil)
-                    (focus *last*)))))
+                (setf *windows* (rrem window *windows* :test #'window-equal)))))
+                ;; (if (win= window *last*)
+                ;;     (setf *last* nil)
+                ;;     (focus *last*)))))
       (ungrab-button *root* (code move) :modifiers (state move))
       (ungrab-button *root* (code resize) :modifiers (state resize))
       (ungrab-key *root* (code prefix) :modifiers (state prefix))
