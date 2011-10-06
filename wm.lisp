@@ -91,6 +91,12 @@ for mouse button."
         (unmap-window w)
         (map-window w))))
 
+(defparameter *groupers* (list 
+                          #'(lambda (w) 
+                              (multiple-value-bind (name class) (get-wm-class w) 
+                                (string= class "Idl"))))
+  "List of predicates against which windows are grouped")
+
 (defun add-window (window)
   "Add window to the list of managed windows. Take care of grouping."
   (let ((grouper (find-if #'(lambda (f) (funcall f window)) *groupers*)))
@@ -122,13 +128,13 @@ for mouse button."
             ((funcall test item hd) rtl)
             (t (cons hd rtl))))))
 
-;;; User settings
 (defun emacs ()
   (let ((emacs (find-if #'(lambda (w) (string= "emacs" (get-wm-class w))) *windows*)))
     (if emacs
         (focus emacs)
         (run-program "emacs" nil :wait nil :search t))))
 
+;;; User shortcuts
 (defparameter *prefix* '(:control #\t) "Prefix for shortcuts")
 (defparameter *move* '(:mod-1 1) "Mouse button to move a window")
 (defparameter *resize* '(:mod-1 3) "Mouse button to resize a window")
@@ -141,11 +147,6 @@ for mouse button."
 (defshortcut (#\p) (next #'1-))
 (defshortcut (:control #\t) (flast))
 ;;(defshortcut (#\h) (toggle-hide))
-(defparameter *groupers* (list 
-                          #'(lambda (w) 
-                              (multiple-value-bind (name class) (get-wm-class w) 
-                                (string= class "Idl"))))
-  "List of predicates against which windows are grouped")
 
 ;;; Modifier keypress avoidance code
 (defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
@@ -226,9 +227,7 @@ for mouse button."
                (:destroy-notify
                 (window)
                 (setf *windows* (rrem window *windows* :test #'window-equal))
-                (if (win= window *last*)
-                    (setf *last* nil)
-                    (focus *last*)))))
+                (when (win= window *last*) (setf *last* nil)))))
       (ungrab-button *root* (code move) :modifiers (state move))
       (ungrab-button *root* (code resize) :modifiers (state resize))
       (ungrab-key *root* (code prefix) :modifiers (state prefix))
