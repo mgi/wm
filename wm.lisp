@@ -128,10 +128,13 @@ for mouse button."
         (focus emacs)
         (run-program "emacs" nil :wait nil :search t))))
 
-;;; User shortcuts
-(defparameter *prefix* '(:control #\t) "Prefix for shortcuts")
+;;; Mouse shorcuts
 (defparameter *move* '(:mod-1 1) "Mouse button to move a window")
 (defparameter *resize* '(:mod-1 3) "Mouse button to resize a window")
+(defparameter *close* '(:control :mod-1 2) "Mouse button to close a window")
+
+;;; Key shortcuts
+(defparameter *prefix* '(:control #\t) "Prefix for shortcuts")
 (defshortcut (#\c) (run-program "xterm" nil :wait nil :search t))
 (defshortcut (#\e) (emacs))
 (defshortcut (:mod-1 #\e) (run-program "envi" nil :wait nil :search t))
@@ -139,6 +142,8 @@ for mouse button."
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
 (defshortcut (#\n) (next))
 (defshortcut (#\p) (next #'1-))
+(defshortcut (:control #\n) (next))
+(defshortcut (:control #\p) (next #'1-))
 (defshortcut (:control #\t) (flast))
 
 ;;; Modifier keypress avoidance code
@@ -153,12 +158,14 @@ for mouse button."
   (let ((prefix (compile-shortcut *prefix*))
         (move (compile-shortcut *move*))
         (resize (compile-shortcut *resize*))
+        (close  (compile-shortcut *close*))
         last-button last-x last-y waiting-shortcut)
 
     ;; Grab prefix and mouse buttons on root
     (grab-key *root* (code prefix) :modifiers (state prefix))
     (grab-button *root* (code move) '(:button-press) :modifiers (state move))
     (grab-button *root* (code resize) '(:button-press) :modifiers (state resize))
+    (grab-button *root* (code close) '(:button-press) :modifiers (state close))
 
     ;; Populate list of windows
     (loop for w in (query-tree *root*) do
@@ -189,15 +196,19 @@ for mouse button."
                (:button-press
                 (code state child)
                 (when (and child (eql (window-override-redirect child) :off))
-                  (setf last-button code)
-                  (grab-pointer child '(:pointer-motion :button-release))
-                  (when (and (= code (code resize))
-                             (= state (state resize)))
-                    (warp-pointer child (drawable-width child) 
-                                  (drawable-height child)))
-                  (let ((lst (multiple-value-list (query-pointer *root*))))
-                    (setf last-x (sixth lst)
-                          last-y (seventh lst)))))
+                  (cond ((and (= code (code close))
+                              (= state (state close)))
+                         (kill-client *display* (window-id child)))
+                        (t
+                         (setf last-button code)
+                         (grab-pointer child '(:pointer-motion :button-release))
+                         (when (and (= code (code resize))
+                                    (= state (state resize)))
+                           (warp-pointer child (drawable-width child)
+                                         (drawable-height child)))
+                         (let ((lst (multiple-value-list (query-pointer *root*))))
+                           (setf last-x (sixth lst)
+                                 last-y (seventh lst)))))))
                (:motion-notify
                 (event-window root-x root-y)
                 (cond ((= last-button (cdr move))
