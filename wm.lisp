@@ -65,12 +65,12 @@ for mouse button."
 (defun win= (a b)
   (cond ((and (window-p a) (window-p b))
          (window-equal a b))
+        ((and (window-p a) (listp b))
+         (loop for w in b thereis (window-equal w a)))
         ((and (listp a) (window-p b))
-         (loop for w in a thereis (window-equal b w)))
-        ((and (listp b) (window-p a))
          (win= b a))
         ((and (listp a) (listp b))
-         (loop for w1 in a thereis (loop for w2 in b thereis (window-equal w1 w2))))))
+         (loop for w in a thereis (win= w b)))))
 
 (defun next (&optional (way #'1+))
   (when *windows*
