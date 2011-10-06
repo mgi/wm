@@ -85,12 +85,6 @@ for mouse button."
       (focus *last*)
       (setf *last* (have-focus))))
 
-(defun toggle-hide ()
-  (dolist (w *windows*)
-    (if (eql (window-map-state w) :viewable)
-        (unmap-window w)
-        (map-window w))))
-
 (defparameter *groupers* (list 
                           #'(lambda (w) 
                               (multiple-value-bind (name class) (get-wm-class w) 
@@ -146,7 +140,6 @@ for mouse button."
 (defshortcut (#\n) (next))
 (defshortcut (#\p) (next #'1-))
 (defshortcut (:control #\t) (flast))
-;;(defshortcut (#\h) (toggle-hide))
 
 ;;; Modifier keypress avoidance code
 (defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
