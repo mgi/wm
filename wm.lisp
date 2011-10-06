@@ -123,11 +123,17 @@ for mouse button."
             (t (cons hd rtl))))))
 
 ;;; User settings
+(defun emacs ()
+  (let ((emacs (find-if #'(lambda (w) (string= "emacs" (get-wm-class w))) *windows*)))
+    (if emacs
+        (focus emacs)
+        (run-program "emacs" nil :wait nil :search t))))
+
 (defparameter *prefix* '(:control #\t) "Prefix for shortcuts")
 (defparameter *move* '(:mod-1 1) "Mouse button to move a window")
 (defparameter *resize* '(:mod-1 3) "Mouse button to resize a window")
 (defshortcut (#\c) (run-program "xterm" nil :wait nil :search t))
-(defshortcut (#\e) (run-program "emacs" nil :wait nil :search t))
+(defshortcut (#\e) (emacs))
 (defshortcut (:mod-1 #\e) (run-program "envi" nil :wait nil :search t))
 (defshortcut (#\w) (run-program "xxxterm" nil :wait nil :search t))
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
