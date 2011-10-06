@@ -15,6 +15,8 @@
 
 (defvar *display* (open-default-display))
 (defvar *root* (screen-root (display-default-screen *display*)))
+(defparameter *windows* nil "List of managed windows")
+(defparameter *last* nil "Last focused window")
 
 (defun mods (l) (butlast l))
 (defun kchar (l) (car (last l)))
@@ -34,8 +36,6 @@ for mouse button."
 (defparameter *shortcuts* 
   (list (cons (compile-shortcut '(:shift #\q)) 'quit))
   "Shortcuts alist initialized with the quit command.")
-(defparameter *windows* nil "List of managed windows")
-(defparameter *last* nil "Last focused window")
 
 (defmacro defshortcut (key &body body)
   "Define a new shortcut in *shortcuts* alist. The key in this alist
@@ -45,14 +45,19 @@ for mouse button."
     `(let ((,sc (compile-shortcut ',key)))
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
+(defun have-focus ()
+  "Return a window (or list of) where the focus is."
+  (let ((w (input-focus *display*)))
+    (find w *windows* :test #'win=)))
+
 (defun focus-1 (window)
   (when (eql (window-map-state window) :viewable)
-    (setf *last* (input-focus *display*)
-          (window-priority window) :above)
+    (setf (window-priority window) :above)
     (set-input-focus *display* window :pointer-root)
     (display-finish-output *display*)))
 
 (defun focus (window)
+  (setf *last* (have-focus))
   (if (listp window)
       (dolist (w window) (focus-1 w))
       (focus-1 window)))
@@ -78,7 +83,7 @@ for mouse button."
 (defun flast ()
   (if *last*
       (focus *last*)
-      (setf *last* (input-focus *display*))))
+      (setf *last* (have-focus))))
 
 (defun toggle-hide ()
   (dolist (w *windows*)
@@ -128,7 +133,7 @@ for mouse button."
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
 (defshortcut (#\n) (next))
 (defshortcut (#\p) (next #'1-))
-;;(defshortcut (:control #\t) (flast))
+(defshortcut (:control #\t) (flast))
 ;;(defshortcut (#\h) (toggle-hide))
 (defparameter *groupers* (list 
                           #'(lambda (w) 
@@ -214,10 +219,10 @@ for mouse button."
                   (focus (add-window window))))
                (:destroy-notify
                 (window)
-                (setf *windows* (rrem window *windows* :test #'window-equal)))))
-                ;; (if (win= window *last*)
-                ;;     (setf *last* nil)
-                ;;     (focus *last*)))))
+                (setf *windows* (rrem window *windows* :test #'window-equal))
+                (if (win= window *last*)
+                    (setf *last* nil)
+                    (focus *last*)))))
       (ungrab-button *root* (code move) :modifiers (state move))
       (ungrab-button *root* (code resize) :modifiers (state resize))
       (ungrab-key *root* (code prefix) :modifiers (state prefix))
