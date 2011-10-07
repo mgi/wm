@@ -2,95 +2,119 @@
 ;;; Most simple window manager on earth. It is a fork from the lisp
 ;;; version of tinywm.
 
-;; Load CLX and make a package
+;;; Load CLX and make a package
 (require 'asdf)
 (asdf:load-system :clx)
 (defpackage :most.simple.wm
-  (:use :common-lisp :xlib))
+  (:use :common-lisp :xlib :sb-ext))
 (in-package :most.simple.wm)
 
-;; Global parameters
-(defparameter *key-mod* '(:control :mod-1) "Modifier for keyboard shortcuts")
-(defparameter *mouse-mod* '(:mod-1) "Modifier for mouse control")
-(defparameter *move* 1 "Mouse button to move a window")
-(defparameter *resize* 3 "Mouse button to resize a window")
-(defparameter *term* #\Return "Key to launch a terminal")
-(defparameter *web* #\w "Key to launch web browser")
-(defparameter *quit* #\q "Key to quit")
-(defparameter *circulate* #\Tab "Key to circulate windows")
-(defparameter *hide* #\h)
+(defvar *display* (open-default-display))
+(defvar *root* (screen-root (display-default-screen *display*)))
 
+(defun mods (l) (butlast l))
+(defun kchar (l) (car (last l)))
+(defun compile-shortcut (l)
+  "Compile a shortcut into a (state . code) form. For
+example: (compile-shortcut '(:control #\t)) -> (4 . 44). Works also
+for mouse button."
+  (let ((k (kchar l))
+        (state (apply #'make-state-mask (mods l))))
+    (if (characterp k)
+        (let ((c (keysym->keycodes *display* (car (character->keysyms k)))))
+          (cons state c))
+        (cons state k))))
+
+(defparameter *shortcuts* 
+  (list (cons (compile-shortcut '(:shift #\q)) 'quit))
+  "Shortcuts alist initialized with the quit command.")
+
+(defmacro defshortcut (key &body body)
+  "Define a new shortcut in *shortcuts* alist. The key in this alist
+  is in (state . code) form and the associated value is a lambda
+  without argument."
+  (let ((sc (gensym)))
+    `(let ((,sc (compile-shortcut ',key)))
+       (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
+
+;;; User settings
+(defparameter *prefix* '(:control #\t) "Prefix for shortcuts")
+(defparameter *move* '(:mod-1 1) "Mouse button to move a window")
+(defparameter *resize* '(:mod-1 3) "Mouse button to resize a window")
+(defshortcut (#\c) (run-program "xterm" nil :wait nil :search t))
+(defshortcut (#\e) (run-program "emacs" nil :wait nil :search t))
+(defshortcut (#\w) (run-program "xxxterm" nil :wait nil :search t))
+(defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
+(defshortcut (#\n) (circulate-window-down *root*))
+
+;;; Modifier keypress avoidance code
+(defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
+
+(defun is-modifier (keycode)
+  "Return t if keycode is a modifier"
+  (find keycode *mods-code* :test 'eql))
+
+;;; Main
 (defun main ()
-  (let* ((display (open-display ""))
-         (screen (first (display-roots display)))
-         (root (screen-root screen)))
+  (let ((prefix (compile-shortcut *prefix*))
+        (move (compile-shortcut *move*))
+        (resize (compile-shortcut *resize*))
+        last-button last-x last-y waiting-shortcut)
 
-    ;; Grab mouse buttons
-    (dolist (button (list *move* *resize*))
-      (grab-button root button '(:button-press) :modifiers *mouse-mod*))
-
-    ;; Grab keyboard shortcuts
-    (dolist (key (list *term* *web* *quit* *circulate* *hide*))
-      (grab-key root (keysym->keycodes display (car (character->keysyms key)))
-                :modifiers *key-mod*))
+    ;; Grab prefix and mouse buttons on root
+    (grab-key *root* (cdr prefix) :modifiers (car prefix))
+    (grab-button *root* (cdr move) '(:button-press) :modifiers (car move))
+    (grab-button *root* (cdr resize) '(:button-press) :modifiers (car resize))
 
     (unwind-protect
-        (let (last-button last-x last-y hidden)
-          (loop named eventloop do
-            (event-case 
-             (display :discard-p t)
-             ;; for key-press and key-release, code is the keycode
-             ;; for button-press and button-release, code is the button number
-             (:key-press
-              (code)
-              (cond ((char= (keycode->character display code 0) *term*)
-                     (sb-ext:run-program "xterm" nil :wait nil :search t))
-                    ((char= (keycode->character display code 0) *web*)
-                     (sb-ext:run-program "xxxterm" nil :wait nil :search t))
-                    ((char= (keycode->character display code 0) *circulate*)
-                     (circulate-window-up root))
-                    ((char= (keycode->character display code 0) *hide*)
-                     (cond (hidden
-                            (mapc #'(lambda (w) (map-window w)) hidden)
-                            (setf hidden nil))
-                           (t
-                            (setf hidden (loop for w in (query-tree root)
-                                              when (eql (window-map-state w) :viewable)
-                                              collect w))
-                            (mapc #'(lambda (w) (unmap-window w)) hidden))))
-                    ((char= (keycode->character display code 0) *quit*)
-                     (return-from eventloop))))
-             (:button-press
-              (code child)
-              (when child        ; do nothing if we're not over a window
-                (setf last-button code)
-                (grab-pointer child '(:pointer-motion :button-release))
-                (when (= code *resize*)
-                  (warp-pointer child (drawable-width child) 
-                                (drawable-height child)))
-                (let ((lst (multiple-value-list (query-pointer root))))
-                  (setf last-x (sixth lst)
-                        last-y (seventh lst)))))
-             (:motion-notify
-              (event-window root-x root-y)
-              (cond ((= last-button *move*)
-                     (let ((delta-x (- root-x last-x))
-                           (delta-y (- root-y last-y)))
-                       (incf (drawable-x event-window) delta-x)
-                       (incf (drawable-y event-window) delta-y)
-                       (incf last-x delta-x)
-                       (incf last-y delta-y)))
-                    ((= last-button *resize*)
-                     (let ((new-w (max 1 (- root-x (drawable-x event-window))))
-                           (new-h (max 1 (- root-y (drawable-y event-window)))))
-                       (setf (drawable-width event-window) new-w
-                             (drawable-height event-window) new-h)))))
-             (:button-release () (ungrab-pointer display))
-             ((:configure-notify :exposure) () t))))
-      (dolist (button (list *move* *resize*))
-        (ungrab-button root button :modifiers *mouse-mod*))
-      (dolist (key (list *term* *quit* *circulate*))
-        (ungrab-key root (keysym->keycodes display key) :modifiers *key-mod*))
-      (close-display display))))
+         (loop named eventloop do
+              (event-case 
+               (*display* :discard-p t)
+               (:key-press
+                (code state)
+                (cond (waiting-shortcut
+                       (unless (is-modifier code)
+                         (let ((entry (assoc (cons state code) *shortcuts* :test #'equal)))
+                           (when entry
+                             (let ((fn (cdr entry)))
+                               (cond ((functionp fn) (funcall fn))
+                                     ((eq fn 'quit) (return-from eventloop))))))
+                         (ungrab-keyboard *display*)
+                         (setf waiting-shortcut nil)))
+                      ((and (= state (car prefix)) (= code (cdr prefix)))
+                       (grab-keyboard *root*)
+                       (setf waiting-shortcut t))))
+               (:button-press
+                (code state child)
+                (when child        ; do nothing if we're not over a window
+                  (setf last-button code)
+                  (grab-pointer child '(:pointer-motion :button-release))
+                  (when (and (= code (cdr resize))
+                             (= state (car resize)))
+                    (warp-pointer child (drawable-width child) 
+                                  (drawable-height child)))
+                  (let ((lst (multiple-value-list (query-pointer *root*))))
+                    (setf last-x (sixth lst)
+                          last-y (seventh lst)))))
+               (:motion-notify
+                (event-window root-x root-y)
+                (cond ((= last-button (cdr move))
+                       (let ((delta-x (- root-x last-x))
+                             (delta-y (- root-y last-y)))
+                         (incf (drawable-x event-window) delta-x)
+                         (incf (drawable-y event-window) delta-y)
+                         (incf last-x delta-x)
+                         (incf last-y delta-y)))
+                      ((= last-button (cdr resize))
+                       (let ((new-w (max 1 (- root-x (drawable-x event-window))))
+                             (new-h (max 1 (- root-y (drawable-y event-window)))))
+                         (setf (drawable-width event-window) new-w
+                               (drawable-height event-window) new-h)))))
+               (:button-release () (ungrab-pointer *display*))
+               ((:configure-notify :exposure) () t)))
+      (ungrab-button *root* (cdr move) :modifiers (car move))
+      (ungrab-button *root* (cdr resize) :modifiers (car resize))
+      (ungrab-key *root* (cdr prefix) :modifiers (car prefix))
+      (close-display *display*))))
 
 (main)
