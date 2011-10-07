@@ -131,7 +131,7 @@ for mouse button."
 ;;; Mouse shorcuts
 (defparameter *move* '(:mod-1 1) "Mouse button to move a window")
 (defparameter *resize* '(:mod-1 3) "Mouse button to resize a window")
-(defparameter *close* '(:control :mod-1 2) "Mouse button to close a window")
+(defparameter *kill* '(:control :mod-1 2) "Mouse button to kill a window")
 
 ;;; Key shortcuts
 (defparameter *prefix* '(:control #\t) "Prefix for shortcuts")
@@ -158,14 +158,14 @@ for mouse button."
   (let ((prefix (compile-shortcut *prefix*))
         (move (compile-shortcut *move*))
         (resize (compile-shortcut *resize*))
-        (close  (compile-shortcut *close*))
+        (kill  (compile-shortcut *kill*))
         last-button last-x last-y waiting-shortcut)
 
     ;; Grab prefix and mouse buttons on root
     (grab-key *root* (code prefix) :modifiers (state prefix))
     (grab-button *root* (code move) '(:button-press) :modifiers (state move))
     (grab-button *root* (code resize) '(:button-press) :modifiers (state resize))
-    (grab-button *root* (code close) '(:button-press) :modifiers (state close))
+    (grab-button *root* (code kill) '(:button-press) :modifiers (state kill))
 
     ;; Populate list of windows
     (loop for w in (query-tree *root*) do
@@ -196,8 +196,8 @@ for mouse button."
                (:button-press
                 (code state child)
                 (when (and child (eql (window-override-redirect child) :off))
-                  (cond ((and (= code (code close))
-                              (= state (state close)))
+                  (cond ((and (= code (code kill))
+                              (= state (state kill)))
                          (kill-client *display* (window-id child)))
                         (t
                          (setf last-button code)
@@ -237,7 +237,7 @@ for mouse button."
                                    (rrem window *last* :test #'window-equal))))))))
       (ungrab-button *root* (code move) :modifiers (state move))
       (ungrab-button *root* (code resize) :modifiers (state resize))
-      (ungrab-button *root* (code close) :modifiers (state close))
+      (ungrab-button *root* (code kill) :modifiers (state kill))
       (ungrab-key *root* (code prefix) :modifiers (state prefix))
       (close-display *display*))))
 
