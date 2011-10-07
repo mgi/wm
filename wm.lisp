@@ -122,11 +122,20 @@ for mouse button."
             ((funcall test item hd) rtl)
             (t (cons hd rtl))))))
 
-(defun emacs ()
-  (let ((emacs (find-if #'(lambda (w) (string= "emacs" (get-wm-class w))) *windows*)))
-    (if emacs
-        (focus emacs)
-        (run-program "emacs" nil :wait nil :search t))))
+(defmacro defror (command)
+  "Define a raise or run command."
+  (let ((win (gensym))
+        (cmdstr (gensym)))
+    `(defun ,command ()
+       (let* ((,cmdstr (string-downcase (string ',command)))
+              (,win (find-if #'(lambda (w)
+                                 (string-equal ,cmdstr (get-wm-class w)))
+                             *windows*)))
+         (if ,win
+             (focus ,win)
+             (run-program ,cmdstr nil :wait nil :search t))))))
+(defror emacs)
+(defror xxxterm)
 
 ;;; Mouse shorcuts
 (defparameter *move* '(:mod-1 1) "Mouse button to move a window")
@@ -137,9 +146,9 @@ for mouse button."
 (defparameter *prefix* '(:control #\t) "Prefix for shortcuts")
 (defshortcut (#\c) (run-program "xterm" nil :wait nil :search t))
 (defshortcut (#\e) (emacs))
-(defshortcut (:mod-1 #\e) (run-program "envi" nil :wait nil :search t))
-(defshortcut (#\w) (run-program "xxxterm" nil :wait nil :search t))
+(defshortcut (#\w) (xxxterm))
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
+(defshortcut (:mod-1 #\e) (run-program "envi" nil :wait nil :search t))
 (defshortcut (#\n) (focus (next)))
 (defshortcut (#\p) (focus (next #'1-)))
 (defshortcut (:control #\n) (focus (next)))
