@@ -45,7 +45,7 @@ for mouse button."
     `(let ((,sc (compile-shortcut ',key)))
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
-(defun have-focus ()
+(defun has-focus ()
   "Return a window (or list of) where the focus is."
   (let ((w (input-focus *display*)))
     (find w *windows* :test #'win=)))
@@ -53,14 +53,14 @@ for mouse button."
 (defun focus-1 (window)
   (when (eql (window-map-state window) :viewable)
     (setf (window-priority window) :above)
-    (set-input-focus *display* window :pointer-root)
-    (display-finish-output *display*)))
+    (set-input-focus *display* window :pointer-root)))
 
 (defun focus (window)
-  (setf *last* (have-focus))
+  (setf *last* (has-focus))
   (if (listp window)
       (dolist (w window) (focus-1 w))
-      (focus-1 window)))
+      (focus-1 window))
+  (display-finish-output *display*))
 
 (defun win= (a b)
   (cond ((and (window-p a) (window-p b))
@@ -72,18 +72,18 @@ for mouse button."
         ((and (listp a) (listp b))
          (loop for w in a thereis (win= w b)))))
 
-(defun next (&optional (way #'1+))
+(defun next (&optional (way #'1+) (window (has-focus)))
   (when *windows*
-    (let* ((cw (input-focus *display*))
-           (ncw (or (position-if #'(lambda (w) (win= w cw)) *windows*) 0))
+    (let* ((nw (or (position window *windows* :test #'win=) 0))
            (n (length *windows*))
-           (next (mod (funcall way ncw) n)))
-      (focus (nth next *windows*)))))
+           (next (mod (funcall way nw) n)))
+      (nth next *windows*))))
 
 (defun flast ()
-  (if *last*
-      (focus *last*)
-      (setf *last* (have-focus))))
+  (let ((me (has-focus)))
+    (when (or (null *last*) (win= *last* me))
+      (setf *last* (next #'1- me)))
+    (focus *last*)))
 
 (defparameter *groupers* (list 
                           #'(lambda (w) 
@@ -140,10 +140,10 @@ for mouse button."
 (defshortcut (:mod-1 #\e) (run-program "envi" nil :wait nil :search t))
 (defshortcut (#\w) (run-program "xxxterm" nil :wait nil :search t))
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
-(defshortcut (#\n) (next))
-(defshortcut (#\p) (next #'1-))
-(defshortcut (:control #\n) (next))
-(defshortcut (:control #\p) (next #'1-))
+(defshortcut (#\n) (focus (next)))
+(defshortcut (#\p) (focus (next #'1-)))
+(defshortcut (:control #\n) (focus (next)))
+(defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (:control #\t) (flast))
 
 ;;; Modifier keypress avoidance code
@@ -229,11 +229,15 @@ for mouse button."
                 (unless override-redirect-p
                   (focus (add-window window))))
                (:destroy-notify
-                (window)
-                (setf *windows* (rrem window *windows* :test #'window-equal))
-                (when (win= window *last*) (setf *last* nil)))))
+                (event-window window)
+                (unless (window-equal event-window window)
+                  (setf *windows* (rrem window *windows* :test #'window-equal))
+                  (when (win= window *last*)
+                    (setf *last* (when (listp *last*)
+                                   (rrem window *last* :test #'window-equal))))))))
       (ungrab-button *root* (code move) :modifiers (state move))
       (ungrab-button *root* (code resize) :modifiers (state resize))
+      (ungrab-button *root* (code close) :modifiers (state close))
       (ungrab-key *root* (code prefix) :modifiers (state prefix))
       (close-display *display*))))
 
