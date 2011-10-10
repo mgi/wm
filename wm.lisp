@@ -92,20 +92,22 @@ for mouse button."
   "List of predicates against which windows are grouped")
 
 (defun add-window (window)
-  "Add window to the list of managed windows. Take care of grouping."
+  "Add window to the list of managed windows. Take care of grouping
+and don't add window already in the list."
   (let ((grouper (find-if #'(lambda (f) (funcall f window)) *groupers*)))
-    (labels ((radd (item list pred)
+    (labels ((radd (item list pred test)
                (cond ((and (null list) (functionp pred))
                       (list (list item)))
                      ((null list) (list item))
                      (t (let ((hd (car list))
                               (tl (cdr list)))
-                          (cond ((and (listp hd)
+                          (cond ((funcall test hd item) list)
+                                ((and (listp hd)
                                       (functionp pred)
                                       (funcall pred (car hd)))
                                  (cons (cons item hd) tl))
-                                (t (cons hd (radd item tl pred)))))))))
-      (setf *windows* (radd window *windows* grouper))
+                                (t (cons hd (radd item tl pred test)))))))))
+      (setf *windows* (radd window *windows* grouper #'win=))
       (find window *windows* :test #'win=))))
   
 (defun rrem (item list &key (test #'eql))
