@@ -105,7 +105,7 @@ and don't add window already in the list."
                                 (t (cons hd (radd item tl pred test)))))))))
       (setf *windows* (radd window *windows* grouper #'win=))
       (find window *windows* :test #'win=))))
-  
+
 (defun rrem (item list &key (test #'eql))
   "Recursive remove."
   (unless (null list)
@@ -183,7 +183,7 @@ and don't add window already in the list."
     (setf (window-event-mask *root*) '(:substructure-notify))
 
     (unwind-protect
-         (loop named eventloop do
+         (loop do
               (event-case 
                (*display* :discard-p t)
                (:key-press
@@ -194,7 +194,7 @@ and don't add window already in the list."
                            (when entry
                              (let ((fn (cdr entry)))
                                (cond ((functionp fn) (funcall fn))
-                                     ((eq fn 'quit) (return-from eventloop))))))
+                                     ((eq fn 'quit) (loop-finish))))))
                          (ungrab-keyboard *display*)
                          (setf waiting-shortcut nil)))
                       ((and (= state (state prefix)) (= code (code prefix)))
