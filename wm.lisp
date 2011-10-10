@@ -50,17 +50,13 @@ for mouse button."
   (let ((w (input-focus *display*)))
     (find w *windows* :test #'win=)))
 
-(defun focus-1 (window)
+(defmethod focus :before (window) (setf *last* (has-focus)))
+(defmethod focus ((window window))
   (when (eql (window-map-state window) :viewable)
     (setf (window-priority window) :above)
     (set-input-focus *display* window :pointer-root)))
-
-(defun focus (window)
-  (setf *last* (has-focus))
-  (if (listp window)
-      (dolist (w window) (focus-1 w))
-      (focus-1 window))
-  (display-finish-output *display*))
+(defmethod focus ((window list)) (dolist (w window) (focus w)))
+(defmethod focus :after (window) (display-finish-output *display*))
 
 (defun win= (a b)
   (cond ((and (window-p a) (window-p b))
