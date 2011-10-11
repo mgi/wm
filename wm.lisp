@@ -58,15 +58,10 @@ for mouse button."
 (defmethod focus ((window list)) (dolist (w window) (focus w)))
 (defmethod focus :after (window) (display-finish-output *display*))
 
-(defun win= (a b)
-  (cond ((and (window-p a) (window-p b))
-         (window-equal a b))
-        ((and (window-p a) (listp b))
-         (loop for w in b thereis (window-equal w a)))
-        ((and (listp a) (window-p b))
-         (win= b a))
-        ((and (listp a) (listp b))
-         (loop for w in a thereis (win= w b)))))
+(defmethod win= ((a window) (b window)) (window-equal a b))
+(defmethod win= ((a list) (b window)) (loop for w in a thereis (window-equal w b)))
+(defmethod win= ((a window) (b list)) (loop for w in b thereis (window-equal w a)))
+(defmethod win= ((a list) (b list)) (loop for w in a thereis (win= w b)))
 
 (defun next (&optional (way #'1+) (window (has-focus)))
   (when *windows*
