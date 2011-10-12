@@ -17,6 +17,7 @@
 (defvar *root* (screen-root (display-default-screen *display*)))
 (defparameter *windows* nil "List of managed windows")
 (defparameter *last* nil "Last focused window")
+(defparameter *curr* nil "Current focused window (used only for group of windows).")
 
 (defun mods (l) (butlast l))
 (defun kchar (l) (car (last l)))
@@ -50,12 +51,22 @@ for mouse button."
   (let ((w (input-focus *display*)))
     (find w *windows* :test #'win=)))
 
-(defmethod focus :before (window) (setf *last* (has-focus)))
+(defmethod focus :before (window)
+  (let ((curr (has-focus)))
+    (setf *last* (if curr curr *curr*)
+          *curr* window)))
+
 (defmethod focus ((window window))
   (when (eql (window-map-state window) :viewable)
     (setf (window-priority window) :above)
     (set-input-focus *display* window :pointer-root)))
-(defmethod focus ((window list)) (dolist (w window) (focus w)))
+
+(defmethod focus ((window list))
+  (dolist (w window)
+    (when (eql (window-map-state w) :viewable)
+      (setf (window-priority w) :above)))
+  (set-input-focus *display* :pointer-root :pointer-root))
+
 (defmethod focus :after (window) (display-finish-output *display*))
 
 (defmethod win= ((a window) (b window)) (window-equal a b))
@@ -63,18 +74,12 @@ for mouse button."
 (defmethod win= ((a window) (b list)) (loop for w in b thereis (window-equal w a)))
 (defmethod win= ((a list) (b list)) (loop for w in a thereis (win= w b)))
 
-(defun next (&optional (way #'1+) (window (has-focus)))
+(defun next (&optional (way #'1+) (window (or (has-focus) *curr*)))
   (when *windows*
     (let* ((nw (or (position window *windows* :test #'win=) 0))
            (n (length *windows*))
            (next (mod (funcall way nw) n)))
       (nth next *windows*))))
-
-(defun flast ()
-  (let ((me (has-focus)))
-    (when (or (null *last*) (win= *last* me))
-      (setf *last* (next #'1- me)))
-    (focus *last*)))
 
 (defparameter *groupers* (list 
                           #'(lambda (w) 
@@ -147,7 +152,7 @@ and don't add window already in the list."
 (defshortcut (#\p) (focus (next #'1-)))
 (defshortcut (:control #\n) (focus (next)))
 (defshortcut (:control #\p) (focus (next #'1-)))
-(defshortcut (:control #\t) (flast))
+(defshortcut (:control #\t) (focus *last*))
 
 ;;; Modifier keypress avoidance code
 (defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
