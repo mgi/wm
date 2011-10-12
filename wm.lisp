@@ -34,7 +34,7 @@ for mouse button."
 (defun state (l) (car l))
 (defun code (l) (cdr l))
 
-(defparameter *shortcuts* 
+(defparameter *shortcuts*
   (list (cons (compile-shortcut '(:shift #\q)) 'quit))
   "Shortcuts alist initialized with the quit command.")
 
@@ -81,9 +81,9 @@ for mouse button."
            (next (mod (funcall way nw) n)))
       (nth next *windows*))))
 
-(defparameter *groupers* (list 
-                          #'(lambda (w) 
-                              (multiple-value-bind (name class) (get-wm-class w) 
+(defparameter *groupers* (list
+                          #'(lambda (w)
+                              (multiple-value-bind (name class) (get-wm-class w)
                                 (string= class "Idl"))))
   "List of predicates against which windows are grouped")
 
@@ -114,7 +114,7 @@ and don't add window already in the list."
            (rtl (rrem item tl :test test)))
       (cond ((listp hd)
              (let ((rhd (rrem item hd :test test)))
-               (if rhd 
+               (if rhd
                    (cons rhd rtl)
                    rtl)))
             ((funcall test item hd) rtl)
@@ -173,7 +173,7 @@ and don't add window already in the list."
 
     ;; Populate list of windows
     (loop for w in (query-tree *root*) do
-         (when (and (eql (window-map-state w) :viewable) 
+         (when (and (eql (window-map-state w) :viewable)
                     (eql (window-override-redirect w) :off))
            (add-window w)))
 
@@ -181,7 +181,7 @@ and don't add window already in the list."
 
     (unwind-protect
          (loop do
-              (event-case 
+              (event-case
                (*display* :discard-p t)
                (:key-press
                 (code state)
