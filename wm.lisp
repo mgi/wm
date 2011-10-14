@@ -46,15 +46,9 @@ for mouse button."
     `(let ((,sc (compile-shortcut ',key)))
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
-(defun has-focus ()
-  "Return a window (or list of) where the focus is."
-  (let ((w (input-focus *display*)))
-    (find w *windows* :test #'win=)))
-
 (defmethod focus :before (window)
-  (let ((curr (has-focus)))
-    (setf *last* (if curr curr *curr*)
-          *curr* window)))
+  (setf *last* *curr*
+        *curr* window))
 
 (defmethod focus ((window window))
   (when (eql (window-map-state window) :viewable)
@@ -74,7 +68,7 @@ for mouse button."
 (defmethod win= ((a window) (b list)) (loop for w in b thereis (window-equal w a)))
 (defmethod win= ((a list) (b list)) (loop for w in a thereis (win= w b)))
 
-(defun next (&optional (way #'1+) (window (or (has-focus) *curr*)))
+(defun next (&optional (way #'1+) (window *curr*))
   (when *windows*
     (let* ((nw (or (position window *windows* :test #'win=) 0))
            (n (length *windows*))
@@ -119,6 +113,8 @@ and don't add window already in the list."
                    rtl)))
             ((funcall test item hd) rtl)
             (t (cons hd rtl))))))
+
+(defun randomth (list) (nth (random (length list)) list))
 
 (defmacro defror (command)
   "Define a raise or run command."
@@ -235,10 +231,12 @@ and don't add window already in the list."
                (:destroy-notify
                 (event-window window)
                 (unless (window-equal event-window window)
-                  (setf *windows* (rrem window *windows* :test #'window-equal))
                   (when (win= window *last*)
-                    (setf *last* (when (listp *last*)
-                                   (rrem window *last* :test #'window-equal))))))))
+                    (setf *last* (next #'1+ *last*)))
+                  (setf *windows* (rrem window *windows* :test #'window-equal))
+                  (when (win= window *curr*)
+                    (let ((newcurr (find-if #'(lambda (w) (win= w *curr*)) *windows*)))
+                      (setf *curr* (if newcurr newcurr (randomth *windows*)))))))))
       (ungrab-button *root* (code *move*) :modifiers (state *move*))
       (ungrab-button *root* (code *resize*) :modifiers (state *resize*))
       (ungrab-button *root* (code *kill*) :modifiers (state *kill*))
