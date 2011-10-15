@@ -47,8 +47,8 @@ for mouse button."
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
 (defmethod focus :before (window)
-  (setf *last* *curr*
-        *curr* window))
+  (unless (win= window *curr*) (setf *last* *curr*))
+  (setf *curr* window))
 
 (defmethod focus ((window window))
   (when (eql (window-map-state window) :viewable)
