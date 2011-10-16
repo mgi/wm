@@ -81,7 +81,7 @@ for mouse button."
                                 (string= class "Idl"))))
   "List of predicates against which windows are grouped")
 
-(defun add-window (window)
+(defun add (window)
   "Add window to the list of managed windows. Take care of grouping
 and don't add window already in the list."
   (let ((grouper (find-if #'(lambda (f) (funcall f window)) *groupers*)))
@@ -171,7 +171,7 @@ and don't add window already in the list."
     (loop for w in (query-tree *root*) do
          (when (and (eql (window-map-state w) :viewable)
                     (eql (window-override-redirect w) :off))
-           (add-window w)))
+           (add w)))
 
     (setf (window-event-mask *root*) '(:substructure-notify))
 
@@ -227,7 +227,7 @@ and don't add window already in the list."
                (:map-notify
                 (window override-redirect-p)
                 (unless override-redirect-p
-                  (focus (add-window window))))
+                  (focus (add window))))
                (:destroy-notify
                 (window)
                 (when (member window *windows* :test #'win=)
