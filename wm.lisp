@@ -150,6 +150,63 @@ nil if nothing has to be done."
 (defror emacs)
 (defror xxxterm)
 
+;;; Apps in path
+(defun split-string (string &optional (character #\Space))
+    "Returns a list of substrings of string
+divided by ONE space each.
+Note: Two consecutive spaces will be seen as
+if there were an empty string between them."
+    (loop for i = 0 then (1+ j)
+          as j = (position character string :start i)
+          collect (subseq string i j)
+          while j))
+
+(defun execp (pathname)
+  "Return T if the pathname describes an executable file."
+  (let ((filename (namestring pathname)))
+    (and (or (pathname-name pathname)
+             (pathname-type pathname))
+         (sb-unix:unix-access filename sb-unix:x_ok))))
+
+(defparameter *apps*
+  (let ((paths (split-string (posix-getenv "PATH") #\:)))
+    (loop for path in paths
+       append (loop for file in (directory (merge-pathnames
+                                            (make-pathname :name :wild :type :wild)
+                                            (concatenate 'string path "/")))
+                   when (execp file) collect (file-namestring file)))))
+
+;;; Modifier keypress avoidance code
+(defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
+
+(defun is-modifier (keycode)
+  "Return t if keycode is a modifier"
+  (find keycode *mods-code* :test #'eql))
+
+;;; App launcher
+(defun single (list) (and (consp list) (null (cdr list))))
+
+(defun one-char ()
+  (event-case (*display*)
+    (:key-press (code state)
+                (if (is-modifier code)
+                    (one-char)
+                    (keycode->character *display* code state)))))
+
+(defun recapp (pos list)
+  (cond ((null list))
+        ((single list)
+         (run-program (car list) nil :wait nil :search t))
+        (t (let* ((char (one-char))
+                  (sublist (remove-if #'(lambda (str)
+                                          (char/= (elt str pos) char)) list)))
+             (recapp (1+ pos) sublist)))))
+
+(defun app ()
+  (grab-keyboard *root*)
+  (unwind-protect (recapp 0 *apps*)
+    (ungrab-keyboard *display*)))
+
 ;;; Mouse shorcuts
 (defparameter *move* (compile-shortcut '(:mod-1 1)) "Mouse button to move a window")
 (defparameter *resize* (compile-shortcut '(:mod-1 3)) "Mouse button to resize a window")
@@ -168,13 +225,7 @@ nil if nothing has to be done."
 (defshortcut (:control #\n) (focus (next)))
 (defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (:control #\t) (focus *last*))
-
-;;; Modifier keypress avoidance code
-(defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
-
-(defun is-modifier (keycode)
-  "Return t if keycode is a modifier"
-  (find keycode *mods-code* :test #'eql))
+(defshortcut (:shift #\!) (app))
 
 ;;; Main
 (defun main ()
