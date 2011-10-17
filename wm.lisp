@@ -47,8 +47,9 @@ for mouse button."
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
 (defmethod focus :before (window)
-  (unless (win= window *curr*) (setf *last* *curr*))
-  (setf *curr* window))
+  (unless (null window)
+    (unless (win= window *curr*) (setf *last* *curr*))
+    (setf *curr* window)))
 
 (defmethod focus ((window window))
   (when (eql (window-map-state window) :viewable)
@@ -59,7 +60,8 @@ for mouse button."
   (dolist (w window)
     (when (eql (window-map-state w) :viewable)
       (setf (window-priority w) :above)))
-  (set-input-focus *display* :pointer-root :pointer-root))
+  (unless (null window)
+    (set-input-focus *display* :pointer-root :pointer-root)))
 
 (defmethod focus :after (window) (display-finish-output *display*))
 
@@ -114,7 +116,21 @@ and don't add window already in the list."
             ((funcall test item hd) rtl)
             (t (cons hd rtl))))))
 
-(defun randomth (list) (nth (random (length list)) list))
+(defun destroy (window)
+  "House keeping when window dies. Returns the window to be focused or
+nil if nothing has to be done."
+  (when (member window *windows* :test #'win=)
+    (setf *windows* (rrem window *windows* :test #'window-equal))
+    (cond ((win= window *curr*)
+           (let ((ncurr (find-if #'(lambda (w) (win= w *curr*)) *windows*)))
+             (cond (ncurr (setf *curr* ncurr)
+                          nil)
+                   (t (setf *curr* (next #'1+ *last*))
+                      *last*))))
+          ((win= window *last*)
+           (let ((nlast (find-if #'(lambda (w) (win= w *last*)) *windows*)))
+             (setf *last* (if nlast nlast (next #'1+ *curr*)))
+             nil)))))
 
 (defmacro defror (command)
   "Define a raise or run command."
@@ -230,20 +246,7 @@ and don't add window already in the list."
                   (focus (add window))))
                (:destroy-notify
                 (window)
-                (when (member window *windows* :test #'win=)
-                  (setf *windows* (rrem window *windows* :test #'window-equal))
-                  (let (move-focus)
-                    (when (win= window *last*)
-                      (setf *last* (find-if #'(lambda (w) (win= w *last*)) *windows*)))
-                    (when (win= window *curr*)
-                      (let ((ncurr (find-if #'(lambda (w) (win= w *curr*)) *windows*)))
-                        (if ncurr 
-                            (setf *curr* ncurr)
-                            (setf *curr* (next #'1+ *last*)
-                                  move-focus t))))
-                    (when (null *last*)
-                      (setf *last* (next #'1+ *curr*)))
-                    (when move-focus (focus *last*)))))))
+                (focus (destroy window)))))
       (ungrab-button *root* (code *move*) :modifiers (state *move*))
       (ungrab-button *root* (code *resize*) :modifiers (state *resize*))
       (ungrab-button *root* (code *kill*) :modifiers (state *kill*))
