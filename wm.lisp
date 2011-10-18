@@ -80,7 +80,10 @@ for mouse button."
 (defparameter *groupers* (list
                           #'(lambda (w)
                               (multiple-value-bind (name class) (get-wm-class w)
-                                (string= class "Idl"))))
+                                (string= class "Idl")))
+                          #'(lambda (w)
+                              (multiple-value-bind (name class) (get-wm-class w)
+                                (string= class "MuPDF"))))
   "List of predicates against which windows are grouped")
 
 (defun add (window)
