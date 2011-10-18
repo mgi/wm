@@ -187,23 +187,27 @@ if there were an empty string between them."
   (find keycode *mods-code* :test #'eql))
 
 ;;; App launcher
+(defparameter *abort* (compile-shortcut '(:control #\g)))
+
 (defun single (list) (and (consp list) (null (cdr list))))
 
 (defun one-char ()
   (event-case (*display*)
     (:key-press (code state)
-                (if (is-modifier code)
-                    (one-char)
-                    (keycode->character *display* code state)))))
+                (cond ((is-modifier code) (one-char))
+                      ((and (= state (state *abort*)) (= code (code *abort*))))
+                      (t (keycode->character *display* code state))))))
 
 (defun recapp (pos list)
   (cond ((null list))
         ((single list)
          (run-program (car list) nil :wait nil :search t))
-        (t (let* ((char (one-char))
-                  (sublist (remove-if #'(lambda (str)
-                                          (char/= (elt str pos) char)) list)))
-             (recapp (1+ pos) sublist)))))
+        (t (let ((char (one-char)))
+             (when (characterp char)
+               (let ((sublist (remove-if #'(lambda (str)
+                                             (or (>= pos (length str))
+                                                 (char/= (elt str pos) char))) list)))
+                 (recapp (1+ pos) sublist)))))))
 
 (defun app ()
   (grab-keyboard *root*)
@@ -228,7 +232,7 @@ if there were an empty string between them."
 (defshortcut (:control #\n) (focus (next)))
 (defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (:control #\t) (focus *last*))
-(defshortcut (:shift #\!) (app))
+(defshortcut (#\a) (app))
 
 ;;; Main
 (defun main ()
