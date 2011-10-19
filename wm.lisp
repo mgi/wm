@@ -15,9 +15,9 @@
 
 (defvar *display* (open-default-display))
 (defvar *root* (screen-root (display-default-screen *display*)))
-(defparameter *windows* nil "List of managed windows")
-(defparameter *last* nil "Last focused window")
-(defparameter *curr* nil "Current focused window (used only for group of windows).")
+(defparameter *windows* nil "List of managed windows.")
+(defparameter *last* nil "Last focused window.")
+(defparameter *curr* nil "Current focused window.")
 
 (defun mods (l) (butlast l))
 (defun kchar (l) (car (last l)))
