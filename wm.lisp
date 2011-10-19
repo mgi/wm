@@ -33,6 +33,7 @@ for mouse button."
         (cons state k))))
 (defun state (l) (car l))
 (defun code (l) (cdr l))
+(defun sc= (sc state code) (and (= (code sc) code) (= (state sc) state)))
 
 (defparameter *shortcuts*
   (list (cons (compile-shortcut '(:shift #\q)) 'quit))
@@ -188,6 +189,8 @@ if there were an empty string between them."
 
 ;;; App launcher
 (defparameter *abort* (compile-shortcut '(:control #\g)))
+(defparameter *this* (compile-shortcut '(#\Return))
+  "Validate THIS app even if it is a prefix of more than one.")
 
 (defun single (list) (and (consp list) (null (cdr list))))
 
@@ -195,7 +198,8 @@ if there were an empty string between them."
   (event-case (*display*)
     (:key-press (code state)
                 (cond ((is-modifier code) (one-char))
-                      ((and (= state (state *abort*)) (= code (code *abort*))))
+                      ((sc= *abort* state code) *abort*)
+                      ((sc= *this* state code) *this*)
                       (t (keycode->character *display* code state))))))
 
 (defun recapp (pos list)
@@ -203,11 +207,18 @@ if there were an empty string between them."
         ((single list)
          (run-program (car list) nil :wait nil :search t))
         (t (let ((char (one-char)))
-             (when (characterp char)
-               (let ((sublist (remove-if #'(lambda (str)
-                                             (or (>= pos (length str))
-                                                 (char/= (elt str pos) char))) list)))
-                 (recapp (1+ pos) sublist)))))))
+             (etypecase char
+               (character
+                (let ((sublist (remove-if #'(lambda (str)
+                                              (or (>= pos (length str))
+                                                  (char/= (elt str pos) char))) list)))
+                  (recapp (1+ pos) sublist)))
+               (cons
+                (cond ((sc= char (state *abort*) (code *abort*)))
+                      ((sc= char (state *this*) (code *this*))
+                       (let ((sublist (remove-if #'(lambda (str) (/= (length str) pos))
+                                                 list)))
+                         (recapp (1+ pos) sublist))))))))))
 
 (defun app ()
   (grab-keyboard *root*)
@@ -267,20 +278,18 @@ if there were an empty string between them."
                                      ((eq fn 'quit) (loop-finish))))))
                          (ungrab-keyboard *display*)
                          (setf waiting-shortcut nil)))
-                      ((and (= state (state *prefix*)) (= code (code *prefix*)))
+                      ((sc= *prefix* state code)
                        (grab-keyboard *root*)
                        (setf waiting-shortcut t))))
                (:button-press
                 (code state child)
                 (when (and child (eql (window-override-redirect child) :off))
-                  (cond ((and (= code (code *kill*))
-                              (= state (state *kill*)))
+                  (cond ((sc= *kill* state code)
                          (kill-client *display* (window-id child)))
                         (t
                          (setf last-button code)
                          (grab-pointer child '(:pointer-motion :button-release))
-                         (when (and (= code (code *resize*))
-                                    (= state (state *resize*)))
+                         (when (sc= *resize* state code)
                            (warp-pointer child (drawable-width child)
                                          (drawable-height child)))
                          (let ((lst (multiple-value-list (query-pointer *root*))))
