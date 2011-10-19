@@ -1,9 +1,0 @@
--*- org -*-
-Here is a list of goals for this window manager:
-
-- Common Lisp;
-- Just the features I want;
-- Beautiful and easy to maintain code;
-- No more than 500 SLOC;
-- No configuration outside the main program. Don't display anything
-  (text or icon) to avoid being tempted.
