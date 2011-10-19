@@ -47,19 +47,23 @@ for mouse button."
     `(let ((,sc (compile-shortcut ',key)))
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
+(defmethod visible-p ((window window)) (eql (window-map-state window) :viewable))
+(defmethod visible-p ((window list)) 
+  (loop for w in window thereis (eql (window-map-state w) :viewable)))
+
 (defmethod focus :before (window)
   (unless (null window)
     (unless (win= window *curr*) (setf *last* *curr*))
     (setf *curr* window)))
 
 (defmethod focus ((window window))
-  (when (eql (window-map-state window) :viewable)
+  (when (visible-p window)
     (setf (window-priority window) :above)
     (set-input-focus *display* window :pointer-root)))
 
 (defmethod focus ((window list))
   (dolist (w window)
-    (when (eql (window-map-state w) :viewable)
+    (when (visible-p w)
       (setf (window-priority w) :above)))
   (unless (null window)
     (set-input-focus *display* :pointer-root :pointer-root)))
@@ -76,7 +80,8 @@ for mouse button."
     (let* ((nw (or (position window *windows* :test #'win=) 0))
            (n (length *windows*))
            (next (mod (funcall way nw) n)))
-      (nth next *windows*))))
+      (let ((win (nth next *windows*)))
+        (if (visible-p win) win (next way win))))))
 
 (defparameter *groupers* (list
                           #'(lambda (w)
@@ -257,7 +262,7 @@ if there were an empty string between them."
 
     ;; Populate list of windows
     (loop for w in (query-tree *root*) do
-         (when (and (eql (window-map-state w) :viewable)
+         (when (and (visible-p w)
                     (eql (window-override-redirect w) :off))
            (add w)))
 
