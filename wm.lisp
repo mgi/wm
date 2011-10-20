@@ -288,6 +288,7 @@ if there were an empty string between them."
                          (kill-client *display* (window-id child)))
                         (t
                          (setf last-button code)
+                         (setf (window-priority child) :above)
                          (grab-pointer child '(:pointer-motion :button-release))
                          (when (sc= *resize* state code)
                            (warp-pointer child (drawable-width child)
