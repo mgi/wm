@@ -15,7 +15,7 @@
 
 (defvar *display* (open-default-display))
 (defvar *root* (screen-root (display-default-screen *display*)))
-(defparameter *windows* nil "List of managed windows.")
+(defparameter *windows* nil "List of managed and mapped windows.")
 (defparameter *last* nil "Last focused window.")
 (defparameter *curr* nil "Current focused window.")
 
@@ -87,7 +87,7 @@ for mouse button."
                                 (string= class "MuPDF"))))
   "List of predicates against which windows are grouped")
 
-(defun add (window)
+(defun plus (window)
   "Add window to the list of managed windows. Take care of grouping
 and don't add window already in the list."
   (let ((grouper (find-if #'(lambda (f) (funcall f window)) *groupers*)))
@@ -120,9 +120,9 @@ and don't add window already in the list."
             ((funcall test item hd) rtl)
             (t (cons hd rtl))))))
 
-(defun destroy (window)
-  "House keeping when window dies. Returns the window to be focused or
-nil if nothing has to be done."
+(defun minus (window)
+  "House keeping when window is unmapped. Returns the window to be
+focused or nil if nothing has to be done."
   (when (member window *windows* :test #'win=)
     (setf *windows* (rrem window *windows* :test #'window-equal))
     (let (res)
@@ -259,7 +259,7 @@ if there were an empty string between them."
     (loop for w in (query-tree *root*) do
          (when (and (eql (window-map-state w) :viewable)
                     (eql (window-override-redirect w) :off))
-           (add w)))
+           (plus w)))
 
     (setf (window-event-mask *root*) '(:substructure-notify))
 
@@ -313,10 +313,10 @@ if there were an empty string between them."
                (:map-notify
                 (window override-redirect-p)
                 (unless override-redirect-p
-                  (focus (add window))))
-               (:destroy-notify
+                  (focus (plus window))))
+               (:unmap-notify
                 (window)
-                (focus (destroy window)))))
+                (focus (minus window)))))
       (ungrab-button *root* (code *move*) :modifiers (state *move*))
       (ungrab-button *root* (code *resize*) :modifiers (state *resize*))
       (ungrab-button *root* (code *kill*) :modifiers (state *kill*))
