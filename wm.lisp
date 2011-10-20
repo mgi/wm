@@ -261,6 +261,7 @@ if there were an empty string between them."
                     (eql (window-override-redirect w) :off))
            (plus w)))
 
+    (intern-atom *display* :_motif_wm_hints)
     (setf (window-event-mask *root*) '(:substructure-notify))
 
     (unwind-protect
