@@ -154,6 +154,10 @@ focused or nil if nothing has to be done."
 (defror emacs)
 (defror xxxterm)
 
+(defun send-message (window type &rest data)
+  (xlib:send-event window :client-message nil :window window
+                   :type type :format 32 :data data))
+
 ;;; Apps in path
 (defun split-string (string &optional (character #\Space))
     "Returns a list of substrings of string
@@ -228,8 +232,8 @@ if there were an empty string between them."
 ;;; Mouse shorcuts
 (defparameter *move* (compile-shortcut '(:mod-1 1)) "Mouse button to move a window")
 (defparameter *resize* (compile-shortcut '(:mod-1 3)) "Mouse button to resize a window")
-(defparameter *kill* (compile-shortcut '(:control :mod-1 2))
-  "Mouse button to kill a window")
+(defparameter *close* (compile-shortcut '(:control :mod-1 2))
+  "Mouse button to close a window")
 
 ;;; Key shortcuts
 (defparameter *prefix* (compile-shortcut '(:control #\t)) "Prefix for shortcuts")
@@ -253,7 +257,7 @@ if there were an empty string between them."
     (grab-key *root* (code *prefix*) :modifiers (state *prefix*))
     (grab-button *root* (code *move*) '(:button-press) :modifiers (state *move*))
     (grab-button *root* (code *resize*) '(:button-press) :modifiers (state *resize*))
-    (grab-button *root* (code *kill*) '(:button-press) :modifiers (state *kill*))
+    (grab-button *root* (code *close*) '(:button-press) :modifiers (state *close*))
 
     ;; Populate list of windows
     (loop for w in (query-tree *root*) do
@@ -285,8 +289,9 @@ if there were an empty string between them."
                (:button-press
                 (code state child)
                 (when (and child (eql (window-override-redirect child) :off))
-                  (cond ((sc= *kill* state code)
-                         (kill-client *display* (window-id child)))
+                  (cond ((sc= *close* state code)
+                         (send-message child :WM_PROTOCOLS
+                                       (intern-atom *display* :WM_DELETE_WINDOW)))
                         (t
                          (setf last-button code)
                          (setf (window-priority child) :above)
@@ -321,7 +326,7 @@ if there were an empty string between them."
                 (focus (minus window)))))
       (ungrab-button *root* (code *move*) :modifiers (state *move*))
       (ungrab-button *root* (code *resize*) :modifiers (state *resize*))
-      (ungrab-button *root* (code *kill*) :modifiers (state *kill*))
+      (ungrab-button *root* (code *close*) :modifiers (state *close*))
       (ungrab-key *root* (code *prefix*) :modifiers (state *prefix*))
       (close-display *display*))))
 
