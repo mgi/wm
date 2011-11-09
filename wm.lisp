@@ -147,7 +147,7 @@ focused or nil if nothing has to be done."
        (let* ((,cmdstr (string-downcase (string ',command)))
               (,win (find-if #'(lambda (w)
                                  (string-equal
-                                  ,cmdstr 
+                                  ,cmdstr
                                   (second (multiple-value-list (get-wm-class w)))))
                              *windows*)))
          (if ,win
