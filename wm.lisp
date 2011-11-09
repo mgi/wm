@@ -146,13 +146,16 @@ focused or nil if nothing has to be done."
     `(defun ,command ()
        (let* ((,cmdstr (string-downcase (string ',command)))
               (,win (find-if #'(lambda (w)
-                                 (string-equal ,cmdstr (get-wm-class w)))
+                                 (string-equal
+                                  ,cmdstr 
+                                  (second (multiple-value-list (get-wm-class w)))))
                              *windows*)))
          (if ,win
              (focus ,win)
              (run-program ,cmdstr nil :wait nil :search t))))))
 (defror emacs)
 (defror xxxterm)
+(defror firefox)
 
 (defun send-message (window type &rest data)
   (send-event window :client-message nil :window window
