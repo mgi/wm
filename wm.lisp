@@ -58,11 +58,16 @@ for mouse button."
     (set-input-focus *display* window :pointer-root)))
 
 (defmethod focus ((window list))
-  (dolist (w window)
-    (when (eql (window-map-state w) :viewable)
-      (setf (window-priority w) :above)))
   (unless (null window)
-    (set-input-focus *display* :pointer-root :pointer-root)))
+    (dolist (w window)
+      (when (eql (window-map-state w) :viewable)
+        (setf (window-priority w) :above)))
+    (set-input-focus *display* :pointer-root :pointer-root)
+    (let ((focus (first window)))
+      (setf (window-priority focus) :above)
+      (warp-pointer focus 
+                    (truncate (drawable-width focus) 2)
+                    (truncate (drawable-height focus) 2)))))
 
 (defmethod focus :after (window) (display-finish-output *display*))
 
