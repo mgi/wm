@@ -155,8 +155,8 @@ focused or nil if nothing has to be done."
 (defror xxxterm)
 
 (defun send-message (window type &rest data)
-  (xlib:send-event window :client-message nil :window window
-                   :type type :format 32 :data data))
+  (send-event window :client-message nil :window window
+              :type type :format 32 :data data))
 
 ;;; Apps in path
 (defun split-string (string &optional (character #\Space))
