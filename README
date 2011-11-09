@@ -27,3 +27,4 @@
    'Meta' (or 'Alt') is the prefix for the mouse.
    - 'left button' moves the window;
    - 'right button' resize the window;
+   - 'C-middle button' close the window.
