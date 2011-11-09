@@ -252,6 +252,19 @@ if there were an empty string between them."
 (defshortcut (:control #\t) (focus *last*))
 (defshortcut (#\a) (app))
 
+(defun send-prefix ()
+  (let ((focus (input-focus *display*)))
+    (when (win= focus *curr*)
+      (send-event focus :key-press (make-event-mask :key-press)
+                  :display *display*
+                  :root *root*
+                  :x 0 :y 0 :root-x 0 :root-y 0
+                  :window focus :event-window focus
+                  :code (code *prefix*)
+                  :state (state *prefix*))
+      (display-finish-output *display*))))
+(defshortcut (#\t) (send-prefix))
+
 ;;; Main
 (defun main ()
   (let (last-button last-x last-y waiting-shortcut)
