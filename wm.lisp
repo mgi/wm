@@ -47,17 +47,19 @@ for mouse button."
     `(let ((,sc (compile-shortcut ',key)))
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
-(defmethod focus :before (window)
+(defgeneric focus (window &key))
+
+(defmethod focus :before (window &key)
   (unless (null window)
     (unless (win= window *curr*) (setf *last* *curr*))
     (setf *curr* window)))
 
-(defmethod focus ((window window))
+(defmethod focus ((window window) &key &allow-other-keys)
   (when (eql (window-map-state window) :viewable)
     (setf (window-priority window) :above)
     (set-input-focus *display* window :pointer-root)))
 
-(defmethod focus ((window list))
+(defmethod focus ((window list) &key (warp-p t))
   (unless (null window)
     (dolist (w window)
       (when (eql (window-map-state w) :viewable)
@@ -65,11 +67,12 @@ for mouse button."
     (set-input-focus *display* :pointer-root :pointer-root)
     (let ((focus (first window)))
       (setf (window-priority focus) :above)
-      (warp-pointer focus 
-                    (truncate (drawable-width focus) 2)
-                    (truncate (drawable-height focus) 2)))))
+      (when warp-p
+        (warp-pointer focus 
+                      (truncate (drawable-width focus) 2)
+                      (truncate (drawable-height focus) 2))))))
 
-(defmethod focus :after (window) (display-finish-output *display*))
+(defmethod focus :after (window &key) (display-finish-output *display*))
 
 (defmethod win= ((a window) (b window)) (window-equal a b))
 (defmethod win= ((a list) (b window)) (loop for w in a thereis (window-equal w b)))
@@ -315,7 +318,7 @@ if there were an empty string between them."
                                        (intern-atom *display* :WM_DELETE_WINDOW)))
                         (t
                          (setf last-button code)
-                         (setf (window-priority child) :above)
+                         (focus (find child *windows* :test #'win=) :warp-p nil)
                          (grab-pointer child '(:pointer-motion :button-release))
                          (when (sc= *resize* state code)
                            (warp-pointer child (drawable-width child)
