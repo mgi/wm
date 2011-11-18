@@ -217,27 +217,28 @@ if there were an empty string between them."
                       ((sc= *this* state code) *this*)
                       (t (keycode->character *display* code state))))))
 
-(defun recapp (pos list)
+(defun recdo (pos list fn)
   (cond ((null list))
         ((single list)
-         (run-program (car list) nil :wait nil :search t))
+         (funcall fn (car list)))
         (t (let ((char (one-char)))
              (etypecase char
                (character
                 (let ((sublist (remove-if #'(lambda (str)
                                               (or (>= pos (length str))
                                                   (char/= (elt str pos) char))) list)))
-                  (recapp (1+ pos) sublist)))
+                  (recdo (1+ pos) sublist fn)))
                (cons
                 (cond ((sc= char (state *abort*) (code *abort*)))
                       ((sc= char (state *this*) (code *this*))
                        (let ((sublist (remove-if #'(lambda (str) (/= (length str) pos))
                                                  list)))
-                         (recapp (1+ pos) sublist))))))))))
+                         (recdo (1+ pos) sublist fn))))))))))
 
 (defun app ()
   (grab-keyboard *root*)
-  (unwind-protect (recapp 0 *apps*)
+  (unwind-protect 
+       (recdo 0 *apps* #'(lambda (app) (run-program app nil :wait nil :search t)))
     (ungrab-keyboard *display*)))
 
 ;;; Mouse shorcuts
