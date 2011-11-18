@@ -294,18 +294,19 @@ if there were an empty string between them."
                (*display* :discard-p t)
                (:key-press
                 (code state)
-                (cond (waiting-shortcut
-                       (unless (is-modifier code)
-                         (let ((entry (assoc (cons state code) *shortcuts* :test #'equal)))
+                (unless (is-modifier code)
+                  (cond (waiting-shortcut
+                         (let ((entry (assoc-if
+                                       #'(lambda (sc) (sc= sc state code)) *shortcuts*)))
                            (when entry
                              (let ((fn (cdr entry)))
                                (cond ((functionp fn) (funcall fn))
                                      ((eq fn 'quit) (loop-finish))))))
                          (ungrab-keyboard *display*)
-                         (setf waiting-shortcut nil)))
-                      ((sc= *prefix* state code)
-                       (grab-keyboard *root*)
-                       (setf waiting-shortcut t))))
+                         (setf waiting-shortcut nil))
+                        ((sc= *prefix* state code)
+                         (grab-keyboard *root*)
+                         (setf waiting-shortcut t)))))
                (:button-press
                 (code state child)
                 (when (and child (eql (window-override-redirect child) :off))
