@@ -16,6 +16,7 @@
 (defvar *display* (open-default-display))
 (defvar *root* (screen-root (display-default-screen *display*)))
 (defparameter *windows* nil "List of managed and mapped windows.")
+(defparameter *hidden* nil "List of hidden windows.")
 (defparameter *last* nil "Last focused window.")
 (defparameter *curr* nil "Current focused window.")
 
@@ -78,6 +79,11 @@ for mouse button."
 (defmethod win= ((a list) (b window)) (loop for w in a thereis (window-equal w b)))
 (defmethod win= ((a window) (b list)) (loop for w in b thereis (window-equal w a)))
 (defmethod win= ((a list) (b list)) (loop for w in a thereis (win= w b)))
+
+(defmethod mapw ((w window)) (map-window w))
+(defmethod mapw ((w list)) (dolist (x w) (map-window x)))
+(defmethod unmapw ((w window)) (unmap-window w))
+(defmethod unmapw ((w list)) (dolist (x w) (unmap-window x)))
 
 (defun next (&optional (way #'1+) (window *curr*))
   (when *windows*
@@ -146,6 +152,15 @@ focused or nil if nothing has to be done."
                 res nil)))
       (when (win= *curr* *last*) (setf *last* (setf res nil)))
       res)))
+
+(defun toggle-hide ()
+  "Hide or show every managed window."
+  (cond (*hidden*
+         (loop for w in *hidden* do (mapw w))
+         (setf *hidden* nil))
+        (t
+         (setf *hidden* (copy-tree *windows*))
+         (loop for w in *windows* do (unmapw w)))))
 
 (defmacro defror (command)
   "Define a raise or run command."
@@ -237,7 +252,7 @@ if there were an empty string between them."
 
 (defun app ()
   (grab-keyboard *root*)
-  (unwind-protect 
+  (unwind-protect
        (recdo 0 *apps* #'(lambda (app) (run-program app nil :wait nil :search t)))
     (ungrab-keyboard *display*)))
 
@@ -260,6 +275,7 @@ if there were an empty string between them."
 (defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (:control #\t) (focus *last*))
 (defshortcut (#\a) (app))
+(defshortcut (#\h) (toggle-hide))
 
 (defun send-prefix ()
   (let ((focus (input-focus *display*)))
