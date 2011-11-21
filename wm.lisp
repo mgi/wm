@@ -46,7 +46,8 @@ for mouse button."
   without argument."
   (let ((sc (gensym)))
     `(let ((,sc (compile-shortcut ,@key)))
-       (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
+       (setf *shortcuts* (remove ,sc *shortcuts* :test #'equal :key #'car))
+       (push (cons ,sc #'(lambda () ,@body)) *shortcuts*))))
 
 (defgeneric focus (window &key))
 
