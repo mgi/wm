@@ -22,9 +22,9 @@
 
 (defun mods (l) (butlast l))
 (defun kchar (l) (car (last l)))
-(defun compile-shortcut (l)
+(defun compile-shortcut (&rest l)
   "Compile a shortcut into a (state . code) form. For
-example: (compile-shortcut '(:control #\t)) -> (4 . 44). Works also
+example: (compile-shortcut :control #\t) -> (4 . 44). Works also
 for mouse button."
   (let ((k (kchar l))
         (state (apply #'make-state-mask (mods l))))
@@ -37,7 +37,7 @@ for mouse button."
 (defun sc= (sc state code) (and (= (code sc) code) (= (state sc) state)))
 
 (defparameter *shortcuts*
-  (list (cons (compile-shortcut '(:shift #\q)) 'quit))
+  (list (cons (compile-shortcut :shift #\q) 'quit))
   "Shortcuts alist initialized with the quit command.")
 
 (defmacro defshortcut (key &body body)
@@ -45,7 +45,7 @@ for mouse button."
   is in (state . code) form and the associated value is a lambda
   without argument."
   (let ((sc (gensym)))
-    `(let ((,sc (compile-shortcut ',key)))
+    `(let ((,sc (compile-shortcut ,@key)))
        (pushnew (cons ,sc #'(lambda () ,@body)) *shortcuts* :test #'equal :key #'car))))
 
 (defgeneric focus (window &key))
@@ -218,8 +218,8 @@ if there were an empty string between them."
   (find keycode *mods-code* :test #'eql))
 
 ;;; App launcher
-(defparameter *abort* (compile-shortcut '(:control #\g)))
-(defparameter *this* (compile-shortcut '(#\Return))
+(defparameter *abort* (compile-shortcut :control #\g))
+(defparameter *this* (compile-shortcut #\Return)
   "Validate THIS app even if it is a prefix of more than one.")
 
 (defun single (list) (and (consp list) (null (cdr list))))
@@ -257,13 +257,13 @@ if there were an empty string between them."
     (ungrab-keyboard *display*)))
 
 ;;; Mouse shorcuts
-(defparameter *move* (compile-shortcut '(:mod-1 1)) "Mouse button to move a window")
-(defparameter *resize* (compile-shortcut '(:mod-1 3)) "Mouse button to resize a window")
-(defparameter *close* (compile-shortcut '(:control :mod-1 2))
+(defparameter *move* (compile-shortcut :mod-1 1) "Mouse button to move a window")
+(defparameter *resize* (compile-shortcut :mod-1 3) "Mouse button to resize a window")
+(defparameter *close* (compile-shortcut :control :mod-1 2)
   "Mouse button to close a window")
 
 ;;; Key shortcuts
-(defparameter *prefix* (compile-shortcut '(:control #\t)) "Prefix for shortcuts")
+(defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
 (defshortcut (#\c) (run-program "xterm" nil :wait nil :search t))
 (defshortcut (#\e) (emacs))
 (defshortcut (#\w) (xxxterm))
