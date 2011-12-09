@@ -89,12 +89,15 @@ for mouse button."
            (next (mod (funcall way nw) n)))
       (nth next *windows*))))
 
+(defmethod xclass ((w window)) (get-wm-class w))
+(defmethod xclass ((w list)) (get-wm-class (first w)))
+
 (defparameter *groupers* (list
                           #'(lambda (w)
-                              (multiple-value-bind (name class) (get-wm-class w)
+                              (multiple-value-bind (name class) (xclass w)
                                 (string= class "Idl")))
                           #'(lambda (w)
-                              (multiple-value-bind (name class) (get-wm-class w)
+                              (multiple-value-bind (name class) (xclass w)
                                 (string= class "MuPDF"))))
   "List of predicates against which windows are grouped")
 
@@ -168,7 +171,7 @@ focused or nil if nothing has to be done."
               (,win (find-if #'(lambda (w)
                                  (string-equal
                                   ,cmdstr
-                                  (second (multiple-value-list (get-wm-class w)))))
+                                  (second (multiple-value-list (xclass w)))))
                              *windows*)))
          (if ,win
              (focus ,win)
