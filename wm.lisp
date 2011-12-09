@@ -49,32 +49,28 @@ for mouse button."
        (setf *shortcuts* (remove ,sc *shortcuts* :test #'equal :key #'car))
        (push (cons ,sc #'(lambda () ,@body)) *shortcuts*))))
 
-(defgeneric focus (window &key))
+(defgeneric focus (window))
 
-(defmethod focus :before (window &key)
+(defmethod focus :before (window)
   (unless (null window)
     (unless (win= window *curr*) (setf *last* *curr*))
     (setf *curr* window)))
 
-(defmethod focus ((window window) &key &allow-other-keys)
+(defmethod focus ((window window))
   (when (eql (window-map-state window) :viewable)
     (setf (window-priority window) :above)
     (set-input-focus *display* window :pointer-root)))
 
-(defmethod focus ((window list) &key (warp-p t))
+(defmethod focus ((window list))
   (unless (null window)
     (dolist (w window)
       (when (eql (window-map-state w) :viewable)
         (setf (window-priority w) :above)))
     (set-input-focus *display* :pointer-root :pointer-root)
     (let ((focus (first window)))
-      (setf (window-priority focus) :above)
-      (when warp-p
-        (warp-pointer focus
-                      (truncate (drawable-width focus) 2)
-                      (truncate (drawable-height focus) 2))))))
+      (setf (window-priority focus) :above))))
 
-(defmethod focus :after (window &key) (display-finish-output *display*))
+(defmethod focus :after (window) (display-finish-output *display*))
 
 (defmethod win= ((a window) (b window)) (window-equal a b))
 (defmethod win= ((a list) (b window)) (loop for w in a thereis (window-equal w b)))
@@ -333,7 +329,7 @@ if there were an empty string between them."
                                        (intern-atom *display* :WM_DELETE_WINDOW)))
                         (t
                          (setf last-button code)
-                         (focus (find child *windows* :test #'win=) :warp-p nil)
+                         (focus (find child *windows* :test #'win=))
                          (grab-pointer child '(:pointer-motion :button-release))
                          (when (sc= *resize* state code)
                            (warp-pointer child (drawable-width child)
