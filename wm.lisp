@@ -1,6 +1,6 @@
 #!/usr/local/bin/sbcl --script
-;;; Used to be the most simple window manager on earth. It is a fork
-;;; from the lisp version of tinywm.
+;;; Used to be the most simple window manager on earth. It started as
+;;; a fork of the lisp version of tinywm.
 
 ;;; Load swank and make a server
 (require 'asdf)
@@ -95,10 +95,7 @@ for mouse button."
 (defparameter *groupers* (list
                           #'(lambda (w)
                               (multiple-value-bind (name class) (xclass w)
-                                (string= class "Idl")))
-                          #'(lambda (w)
-                              (multiple-value-bind (name class) (xclass w)
-                                (string= class "MuPDF"))))
+                                (string= class "Idl"))))
   "List of predicates against which windows are grouped")
 
 (defun plus (window)
