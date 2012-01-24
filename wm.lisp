@@ -285,7 +285,7 @@ if there were an empty string between them."
 
 ;;; Main
 (defun main ()
-  (let (last-button last-x last-y waiting-shortcut)
+  (let (last-button last-x last-y waiting-shortcut last-resize)
 
     ;; Grab prefix and mouse buttons on root
     (grab-key *root* (code *prefix*) :modifiers (state *prefix*))
@@ -338,7 +338,7 @@ if there were an empty string between them."
                            (setf last-x (sixth lst)
                                  last-y (seventh lst)))))))
                (:motion-notify
-                (event-window root-x root-y)
+                (event-window root-x root-y time)
                 (cond ((= last-button (code *move*))
                        (let ((delta-x (- root-x last-x))
                              (delta-y (- root-y last-y)))
@@ -347,10 +347,12 @@ if there were an empty string between them."
                          (incf last-x delta-x)
                          (incf last-y delta-y)))
                       ((= last-button (code *resize*))
-                       (let ((new-w (max 1 (- root-x (drawable-x event-window))))
-                             (new-h (max 1 (- root-y (drawable-y event-window)))))
-                         (setf (drawable-width event-window) new-w
-                               (drawable-height event-window) new-h)))))
+                       (when (or (null last-resize) (> (- time last-resize) (/ 1000 60)))
+                         (let ((new-w (max 1 (- root-x (drawable-x event-window))))
+                               (new-h (max 1 (- root-y (drawable-y event-window)))))
+                           (setf (drawable-width event-window) new-w
+                                 (drawable-height event-window) new-h))
+                         (setf last-resize time)))))
                (:button-release () (ungrab-pointer *display*))
                (:map-notify
                 (window override-redirect-p)
