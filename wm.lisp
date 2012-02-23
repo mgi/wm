@@ -174,7 +174,6 @@ focused or nil if nothing has to be done."
              (focus ,win)
              (run-program ,cmdstr nil :wait nil :search t))))))
 (defror emacs)
-(defror xxxterm)
 (defror firefox)
 
 (defun send-message (window type &rest data)
@@ -263,7 +262,7 @@ if there were an empty string between them."
 (defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
 (defshortcut (#\c) (run-program "xterm" nil :wait nil :search t))
 (defshortcut (#\e) (emacs))
-(defshortcut (#\w) (xxxterm))
+(defshortcut (#\w) (firefox))
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
 (defshortcut (:mod-1 #\e) (run-program "envi" nil :wait nil :search t))
 (defshortcut (#\n) (focus (next)))
