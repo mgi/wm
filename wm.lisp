@@ -153,11 +153,11 @@ focused or nil if nothing has to be done."
 (defun toggle-hide ()
   "Hide or show every managed window."
   (cond (*hidden*
-         (loop for w in *hidden* do (mapw w))
+         (dolist (w *hidden*) (mapw w))
          (setf *hidden* nil))
         (t
          (setf *hidden* (copy-tree *windows*))
-         (loop for w in *windows* do (unmapw w)))))
+         (dolist (w *windows*) (unmapw w)))))
 
 (defmacro defror (command)
   "Define a raise or run command."
@@ -293,10 +293,10 @@ if there were an empty string between them."
     (grab-button *root* (code *close*) '(:button-press) :modifiers (state *close*))
 
     ;; Populate list of windows
-    (loop for w in (query-tree *root*) do
-         (when (and (eql (window-map-state w) :viewable)
-                    (eql (window-override-redirect w) :off))
-           (plus w)))
+    (dolist (w (query-tree *root*))
+      (when (and (eql (window-map-state w) :viewable)
+                 (eql (window-override-redirect w) :off))
+        (plus w)))
 
     (intern-atom *display* :_motif_wm_hints)
     (setf (window-event-mask *root*) '(:substructure-notify))
