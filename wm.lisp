@@ -178,18 +178,18 @@ focused or nil if nothing has to be done."
 
 (defun send-message (window type &rest data)
   (send-event window :client-message nil :window window
-              :type type :format 32 :data data))
+                     :type type :format 32 :data data))
 
 ;;; Apps in path
 (defun split-string (string &optional (character #\Space))
-    "Returns a list of substrings of string
+  "Returns a list of substrings of string
 divided by ONE space each.
 Note: Two consecutive spaces will be seen as
 if there were an empty string between them."
-    (loop for i = 0 then (1+ j)
-          as j = (position character string :start i)
-          collect (subseq string i j)
-          while j))
+  (loop for i = 0 then (1+ j)
+        as j = (position character string :start i)
+        collect (subseq string i j)
+        while j))
 
 (defun execp (pathname)
   "Return T if the pathname describes an executable file."
@@ -201,10 +201,10 @@ if there were an empty string between them."
 (defparameter *apps*
   (let ((paths (split-string (posix-getenv "PATH") #\:)))
     (loop for path in paths
-       append (loop for file in (directory (merge-pathnames
-                                            (make-pathname :name :wild :type :wild)
-                                            (concatenate 'string path "/")))
-                   when (execp file) collect (file-namestring file)))))
+          append (loop for file in (directory (merge-pathnames
+                                               (make-pathname :name :wild :type :wild)
+                                               (concatenate 'string path "/")))
+                       when (execp file) collect (file-namestring file)))))
 
 ;;; Modifier keypress avoidance code
 (defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
@@ -222,11 +222,11 @@ if there were an empty string between them."
 
 (defun one-char ()
   (event-case (*display*)
-    (:key-press (code state)
-                (cond ((is-modifier code) (one-char))
-                      ((sc= *abort* state code) *abort*)
-                      ((sc= *this* state code) *this*)
-                      (t (keycode->character *display* code state))))))
+              (:key-press (code state)
+                          (cond ((is-modifier code) (one-char))
+                                ((sc= *abort* state code) *abort*)
+                                ((sc= *this* state code) *this*)
+                                (t (keycode->character *display* code state))))))
 
 (defun recdo (pos list fn)
   (cond ((null list))
@@ -277,93 +277,103 @@ if there were an empty string between them."
   (let ((focus (input-focus *display*)))
     (when (win= focus *curr*)
       (send-event focus :key-press (make-event-mask :key-press)
-                  :window focus
-                  :code (code *prefix*)
-                  :state (state *prefix*)))))
+                        :window focus
+                        :code (code *prefix*)
+                        :state (state *prefix*)))))
 (defshortcut (#\t) (send-prefix))
+
+(defvar last-button nil)
+(defvar last-x nil)
+(defvar last-y nil)
+(defvar last-resize nil)
+(defvar waiting-shortcut nil)
+
+(defun key-press (code state)
+  (unless (is-modifier code)
+    (cond (waiting-shortcut
+           (let ((entry (assoc-if
+                         #'(lambda (sc) (sc= sc state code)) *shortcuts*)))
+             (when entry
+               (let ((fn (cdr entry)))
+                 (cond ((functionp fn) (funcall fn))
+                       ((eq fn 'quit) fn)))))
+           (ungrab-keyboard *display*)
+           (setf waiting-shortcut nil))
+          ((sc= *prefix* state code)
+           (grab-keyboard *root*)
+           (setf waiting-shortcut t)))))
+
+(defun button-press (code state child)
+  (when (and child (eql (window-override-redirect child) :off))
+    (cond ((sc= *close* state code)
+           (send-message child :WM_PROTOCOLS
+                         (intern-atom *display* :WM_DELETE_WINDOW)))
+          (t
+           (setf last-button code)
+           (focus (find child *windows* :test #'win=))
+           (grab-pointer child '(:pointer-motion :button-release))
+           (when (sc= *resize* state code)
+             (warp-pointer child (drawable-width child)
+                           (drawable-height child)))
+           (let ((lst (multiple-value-list (query-pointer *root*))))
+             (setf last-x (sixth lst)
+                   last-y (seventh lst)))))))
+
+(defun motion-notify (event-window root-x root-y time)
+  (cond ((= last-button (code *move*))
+         (let ((delta-x (- root-x last-x))
+               (delta-y (- root-y last-y)))
+           (incf (drawable-x event-window) delta-x)
+           (incf (drawable-y event-window) delta-y)
+           (incf last-x delta-x)
+           (incf last-y delta-y)))
+        ((= last-button (code *resize*))
+         (when (or (null last-resize) (> (- time last-resize) (/ 1000 60)))
+           (let ((new-w (max 1 (- root-x (drawable-x event-window))))
+                 (new-h (max 1 (- root-y (drawable-y event-window)))))
+             (setf (drawable-width event-window) new-w
+                   (drawable-height event-window) new-h))
+           (setf last-resize time)))))
 
 ;;; Main
 (defun main ()
-  (let (last-button last-x last-y waiting-shortcut last-resize)
+  ;; Grab prefix and mouse buttons on root
+  (grab-key *root* (code *prefix*) :modifiers (state *prefix*))
+  (grab-button *root* (code *move*) '(:button-press) :modifiers (state *move*))
+  (grab-button *root* (code *resize*) '(:button-press) :modifiers (state *resize*))
+  (grab-button *root* (code *close*) '(:button-press) :modifiers (state *close*))
 
-    ;; Grab prefix and mouse buttons on root
-    (grab-key *root* (code *prefix*) :modifiers (state *prefix*))
-    (grab-button *root* (code *move*) '(:button-press) :modifiers (state *move*))
-    (grab-button *root* (code *resize*) '(:button-press) :modifiers (state *resize*))
-    (grab-button *root* (code *close*) '(:button-press) :modifiers (state *close*))
+  ;; Populate list of windows
+  (dolist (w (query-tree *root*))
+    (when (and (eql (window-map-state w) :viewable)
+               (eql (window-override-redirect w) :off))
+      (plus w)))
 
-    ;; Populate list of windows
-    (dolist (w (query-tree *root*))
-      (when (and (eql (window-map-state w) :viewable)
-                 (eql (window-override-redirect w) :off))
-        (plus w)))
+  (intern-atom *display* :_motif_wm_hints)
+  (setf (window-event-mask *root*) '(:substructure-notify))
 
-    (intern-atom *display* :_motif_wm_hints)
-    (setf (window-event-mask *root*) '(:substructure-notify))
-
-    (unwind-protect
-         (loop do
-              (event-case
-               (*display* :discard-p t)
-               (:key-press
-                (code state)
-                (unless (is-modifier code)
-                  (cond (waiting-shortcut
-                         (let ((entry (assoc-if
-                                       #'(lambda (sc) (sc= sc state code)) *shortcuts*)))
-                           (when entry
-                             (let ((fn (cdr entry)))
-                               (cond ((functionp fn) (funcall fn))
-                                     ((eq fn 'quit) (loop-finish))))))
-                         (ungrab-keyboard *display*)
-                         (setf waiting-shortcut nil))
-                        ((sc= *prefix* state code)
-                         (grab-keyboard *root*)
-                         (setf waiting-shortcut t)))))
-               (:button-press
-                (code state child)
-                (when (and child (eql (window-override-redirect child) :off))
-                  (cond ((sc= *close* state code)
-                         (send-message child :WM_PROTOCOLS
-                                       (intern-atom *display* :WM_DELETE_WINDOW)))
-                        (t
-                         (setf last-button code)
-                         (focus (find child *windows* :test #'win=))
-                         (grab-pointer child '(:pointer-motion :button-release))
-                         (when (sc= *resize* state code)
-                           (warp-pointer child (drawable-width child)
-                                         (drawable-height child)))
-                         (let ((lst (multiple-value-list (query-pointer *root*))))
-                           (setf last-x (sixth lst)
-                                 last-y (seventh lst)))))))
-               (:motion-notify
-                (event-window root-x root-y time)
-                (cond ((= last-button (code *move*))
-                       (let ((delta-x (- root-x last-x))
-                             (delta-y (- root-y last-y)))
-                         (incf (drawable-x event-window) delta-x)
-                         (incf (drawable-y event-window) delta-y)
-                         (incf last-x delta-x)
-                         (incf last-y delta-y)))
-                      ((= last-button (code *resize*))
-                       (when (or (null last-resize) (> (- time last-resize) (/ 1000 60)))
-                         (let ((new-w (max 1 (- root-x (drawable-x event-window))))
-                               (new-h (max 1 (- root-y (drawable-y event-window)))))
-                           (setf (drawable-width event-window) new-w
-                                 (drawable-height event-window) new-h))
-                         (setf last-resize time)))))
-               (:button-release () (ungrab-pointer *display*))
-               (:map-notify
-                (window override-redirect-p)
-                (unless override-redirect-p
-                  (focus (plus window))))
-               (:unmap-notify
-                (window)
-                (focus (minus window)))))
-      (ungrab-button *root* (code *move*) :modifiers (state *move*))
-      (ungrab-button *root* (code *resize*) :modifiers (state *resize*))
-      (ungrab-button *root* (code *close*) :modifiers (state *close*))
-      (ungrab-key *root* (code *prefix*) :modifiers (state *prefix*))
-      (close-display *display*))))
+  (unwind-protect
+       (loop do
+         (event-case (*display* :discard-p t)
+                     (:key-press (code state)
+                                 (when (eql (key-press code state) 'quit)
+                                   (loop-finish)))
+                     (:button-press (code state child) (button-press code state child))
+                     (:motion-notify (event-window root-x root-y time)
+                                     (motion-notify event-window root-x root-y time))
+                     (:button-release () (ungrab-pointer *display*))
+                     (:configure-request
+                      (window x y width height)
+                      (setf (drawable-x window) x (drawable-y window) y
+                            (drawable-width window) width (drawable-height window) height))
+                     (:map-notify (window override-redirect-p)
+                                  (unless override-redirect-p
+                                    (focus (plus window))))
+                     (:unmap-notify (window) (focus (minus window)))))
+    (ungrab-button *root* (code *move*) :modifiers (state *move*))
+    (ungrab-button *root* (code *resize*) :modifiers (state *resize*))
+    (ungrab-button *root* (code *close*) :modifiers (state *close*))
+    (ungrab-key *root* (code *prefix*) :modifiers (state *prefix*))
+    (close-display *display*)))
 
 (main)
