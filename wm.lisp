@@ -15,10 +15,24 @@
 
 (defvar *display* (open-default-display))
 (defvar *root* (screen-root (display-default-screen *display*)))
+(defparameter *handlers* (make-list (length xlib::*event-key-vector*)
+                                    :initial-element
+                                    #'(lambda (&rest slots)
+                                        (format t "~A ~A~%"
+                                                (getf slots :event-key)
+                                                (getf slots :window)))))
 (defparameter *windows* nil "List of managed and mapped windows.")
 (defparameter *hidden* nil "List of hidden windows.")
 (defparameter *last* nil "Last focused window.")
 (defparameter *curr* nil "Current focused window.")
+
+(defmacro defhandler (event keys &body body)
+  (let ((fn-name (gensym))
+        (event-slots (gensym)))
+    `(labels ((,fn-name (&rest ,event-slots &key ,@keys &allow-other-keys)
+                (declare (ignore ,event-slots))
+                ,@body))
+       (setf (elt *handlers* (position ,event xlib::*event-key-vector*)) #',fn-name))))
 
 (defun mods (l) (butlast l))
 (defun kchar (l) (car (last l)))
@@ -288,22 +302,22 @@ if there were an empty string between them."
 (defvar last-resize nil)
 (defvar waiting-shortcut nil)
 
-(defun key-press (code state)
+(defhandler :key-press (code state)
   (unless (is-modifier code)
     (cond (waiting-shortcut
-           (let ((entry (assoc-if
-                         #'(lambda (sc) (sc= sc state code)) *shortcuts*)))
+           (let ((entry (assoc-if #'(lambda (sc) (sc= sc state code)) *shortcuts*))
+                 fn)
              (when entry
-               (let ((fn (cdr entry)))
-                 (cond ((functionp fn) (funcall fn))
-                       ((eq fn 'quit) fn)))))
-           (ungrab-keyboard *display*)
-           (setf waiting-shortcut nil))
+               (setf fn (cdr entry)))
+             (when (functionp fn) (funcall fn))
+             (ungrab-keyboard *display*)
+             (setf waiting-shortcut nil)
+             fn))
           ((sc= *prefix* state code)
            (grab-keyboard *root*)
            (setf waiting-shortcut t)))))
 
-(defun button-press (code state child)
+(defhandler :button-press (code state child)
   (when (and child (eql (window-override-redirect child) :off))
     (cond ((sc= *close* state code)
            (send-message child :WM_PROTOCOLS
@@ -319,7 +333,7 @@ if there were an empty string between them."
              (setf last-x (sixth lst)
                    last-y (seventh lst)))))))
 
-(defun motion-notify (event-window root-x root-y time)
+(defhandler :motion-notify (event-window root-x root-y time)
   (cond ((= last-button (code *move*))
          (let ((delta-x (- root-x last-x))
                (delta-y (- root-y last-y)))
@@ -334,6 +348,16 @@ if there were an empty string between them."
              (setf (drawable-width event-window) new-w
                    (drawable-height event-window) new-h))
            (setf last-resize time)))))
+
+(defhandler :button-release () (ungrab-pointer *display*))
+
+(defhandler :map-notify (window override-redirect-p)
+  (unless override-redirect-p
+    (focus (plus window))))
+
+(defhandler :unmap-notify (window) (focus (minus window)))
+(defhandler :configure-notify (window width height x y)
+  (format t "~Ax~A+~A+~A~%" width height x y))
 
 ;;; Main
 (defun main ()
@@ -353,26 +377,9 @@ if there were an empty string between them."
   (setf (window-event-mask *root*) '(:substructure-notify))
 
   (unwind-protect
-       (loop do
-         (event-case (*display* :discard-p t)
-                     (:key-press (code state)
-                                 (when (eql (key-press code state) 'quit)
-                                   (loop-finish)))
-                     (:button-press (code state child) (button-press code state child))
-                     (:motion-notify (event-window root-x root-y time)
-                                     (motion-notify event-window root-x root-y time))
-                     (:button-release () (ungrab-pointer *display*))
-                     (:configure-request
-                      (window x y width height)
-                      (setf (drawable-x window) x (drawable-y window) y
-                            (drawable-width window) width (drawable-height window) height))
-                     (:map-notify (window override-redirect-p)
-                                  (unless override-redirect-p
-                                    (focus (plus window))))
-                     (:unmap-notify (window) (focus (minus window)))))
-    (ungrab-button *root* (code *move*) :modifiers (state *move*))
-    (ungrab-button *root* (code *resize*) :modifiers (state *resize*))
-    (ungrab-button *root* (code *close*) :modifiers (state *close*))
+       (do () ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit)))
+    (dolist (b (list *move* *resize* *close*))
+      (ungrab-button *root* (code b) :modifiers (state b)))
     (ungrab-key *root* (code *prefix*) :modifiers (state *prefix*))
     (close-display *display*)))
 
