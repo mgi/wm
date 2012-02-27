@@ -17,10 +17,7 @@
 (defvar *root* (screen-root (display-default-screen *display*)))
 (defparameter *handlers* (make-list (length xlib::*event-key-vector*)
                                     :initial-element
-                                    #'(lambda (&rest slots)
-                                        (format t "~A ~A~%"
-                                                (getf slots :event-key)
-                                                (getf slots :window)))))
+                                    #'(lambda (&rest slots))))
 (defparameter *windows* nil "List of managed and mapped windows.")
 (defparameter *hidden* nil "List of hidden windows.")
 (defparameter *last* nil "Last focused window.")
@@ -356,8 +353,6 @@ if there were an empty string between them."
     (focus (plus window))))
 
 (defhandler :unmap-notify (window) (focus (minus window)))
-(defhandler :configure-notify (window width height x y)
-  (format t "~Ax~A+~A+~A~%" width height x y))
 
 ;;; Main
 (defun main ()
