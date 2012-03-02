@@ -315,7 +315,7 @@ don't contain `sofar'."
 (defvar last-button nil)
 (defvar last-x nil)
 (defvar last-y nil)
-(defvar last-resize nil)
+(defvar last-motion nil)
 (defvar waiting-shortcut nil)
 
 (defhandler :key-press (code state)
@@ -333,8 +333,7 @@ don't contain `sofar'."
 (defhandler :button-press (code state child)
   (when (and child (eql (window-override-redirect child) :off))
     (cond ((sc= *close* state code)
-           (send-message child :WM_PROTOCOLS
-                         (intern-atom *display* :WM_DELETE_WINDOW)))
+           (send-message child :WM_PROTOCOLS (intern-atom *display* :WM_DELETE_WINDOW)))
           (t
            (setf last-button code)
            (focus (find child *windows* :test #'win=))
@@ -347,20 +346,20 @@ don't contain `sofar'."
                    last-y (seventh lst)))))))
 
 (defhandler :motion-notify (event-window root-x root-y time)
-  (cond ((= last-button (code *move*))
-         (let ((delta-x (- root-x last-x))
-               (delta-y (- root-y last-y)))
-           (incf (drawable-x event-window) delta-x)
-           (incf (drawable-y event-window) delta-y)
-           (incf last-x delta-x)
-           (incf last-y delta-y)))
-        ((= last-button (code *resize*))
-         (when (or (null last-resize) (> (- time last-resize) (/ 1000 60)))
+  (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
+    (cond ((= last-button (code *move*))
+           (let ((delta-x (- root-x last-x))
+                 (delta-y (- root-y last-y)))
+             (incf (drawable-x event-window) delta-x)
+             (incf (drawable-y event-window) delta-y)
+             (incf last-x delta-x)
+             (incf last-y delta-y)))
+          ((= last-button (code *resize*))
            (let ((new-w (max 1 (- root-x (drawable-x event-window))))
                  (new-h (max 1 (- root-y (drawable-y event-window)))))
              (setf (drawable-width event-window) new-w
-                   (drawable-height event-window) new-h))
-           (setf last-resize time)))))
+                   (drawable-height event-window) new-h))))
+    (setf last-motion time)))
 
 (defhandler :button-release () (ungrab-pointer *display*))
 
