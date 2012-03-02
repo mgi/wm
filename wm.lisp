@@ -321,10 +321,7 @@ don't contain `sofar'."
 (defhandler :key-press (code state)
   (unless (is-modifier code)
     (cond (waiting-shortcut
-           (let ((entry (assoc-if #'(lambda (sc) (sc= sc state code)) *shortcuts*))
-                 fn)
-             (when entry
-               (setf fn (cdr entry)))
+           (let ((fn (cdr (assoc-if #'(lambda (sc) (sc= sc state code)) *shortcuts*))))
              (when (functionp fn) (funcall fn))
              (ungrab-keyboard *display*)
              (setf waiting-shortcut nil)
