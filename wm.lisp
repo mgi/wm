@@ -16,8 +16,7 @@
 (defvar *display* (open-default-display))
 (defvar *root* (screen-root (display-default-screen *display*)))
 (defparameter *handlers* (make-list (length xlib::*event-key-vector*)
-                                    :initial-element
-                                    #'(lambda (&rest slots))))
+                                    :initial-element #'(lambda (&rest slots))))
 (defparameter *windows* nil "List of managed and mapped windows.")
 (defparameter *hidden* nil "List of hidden windows.")
 (defparameter *last* nil "Last focused window.")
@@ -221,7 +220,7 @@ if there were an empty string between them."
 (defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
 
 (defun is-modifier (keycode)
-  "Return t if keycode is a modifier"
+  "Return non-nil if keycode is a modifier"
   (find keycode *mods-code* :test #'eql))
 
 ;;; App launcher
@@ -232,35 +231,54 @@ if there were an empty string between them."
 (defun single (list) (and (consp list) (null (cdr list))))
 
 (defun one-char ()
+  "Get one char from the user. The keyboard should be grabbed before call."
   (event-case (*display*)
-              (:key-press (code state)
-                          (cond ((is-modifier code) (one-char))
-                                ((sc= *abort* state code) *abort*)
-                                ((sc= *this* state code) *this*)
-                                (t (keycode->character *display* code state))))))
+    (:key-press (code state)
+                (cond ((is-modifier code) (one-char))
+                      ((sc= *abort* state code) 'abort)
+                      ((sc= *this* state code) 'this)
+                      (t (keycode->character *display* code state))))))
 
-(defun recdo (pos list fn)
+(defun pre-matcher (sofar)
+  "Build a matcher to eliminate (with remove-if-not) strings that
+don't have the same character at the same place as `sofar'."
+  (let* ((n (1- (length sofar)))
+         (c (elt sofar n)))
+    #'(lambda (str) (and (< n (length str))
+                         (char= c (elt str n))))))
+
+(defun in-matcher (sofar)
+  "Build a matcher to eliminate (with remove-if-not) strings that
+don't contain `sofar'."
+  #'(lambda (str) (search sofar str :test #'char=)))
+
+(defun recdo-1 (sofar list fn matcher key)
   (cond ((null list))
         ((single list)
          (funcall fn (car list)))
         (t (let ((char (one-char)))
              (etypecase char
                (character
-                (let ((sublist (remove-if #'(lambda (str)
-                                              (or (>= pos (length str))
-                                                  (char/= (elt str pos) char))) list)))
-                  (recdo (1+ pos) sublist fn)))
-               (cons
-                (cond ((sc= char (state *abort*) (code *abort*)))
-                      ((sc= char (state *this*) (code *this*))
-                       (let ((sublist (remove-if #'(lambda (str) (/= (length str) pos))
-                                                 list)))
-                         (recdo (1+ pos) sublist fn))))))))))
+                (vector-push-extend char sofar)
+                (recdo-1 sofar (remove-if-not (funcall matcher sofar) list :key key)
+                         fn matcher key))
+               (symbol
+                (cond ((eql char 'abort))
+                      ((eql char 'this) (funcall fn (car list))))))))))
+
+(defun recdo (list fn &key (matcher #'pre-matcher) (key #'identity))
+  (let ((sofar (make-array 0 :element-type 'character :fill-pointer t :adjustable t)))
+    (recdo-1 sofar list fn matcher key)))
 
 (defun app ()
   (grab-keyboard *root*)
   (unwind-protect
-       (recdo 0 *apps* #'(lambda (app) (run-program app nil :wait nil :search t)))
+       (recdo *apps* #'(lambda (app) (run-program app nil :wait nil :search t)))
+    (ungrab-keyboard *display*)))
+
+(defun finder ()
+  (grab-keyboard *root*)
+  (unwind-protect (recdo *windows* #'focus :key #'xclass :matcher #'in-matcher)
     (ungrab-keyboard *display*)))
 
 ;;; Mouse shorcuts
@@ -282,6 +300,7 @@ if there were an empty string between them."
 (defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (:control #\t) (focus *last*))
 (defshortcut (#\a) (app))
+(defshortcut (#\f) (finder))
 (defshortcut (#\h) (toggle-hide))
 
 (defun send-prefix ()
