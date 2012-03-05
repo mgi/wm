@@ -1,5 +1,3 @@
-#-*-org-*-
-
 * Goals
   Here is a set of goals for this window manager:
 
