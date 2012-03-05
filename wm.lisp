@@ -141,24 +141,23 @@ and don't add window already in the list."
             ((funcall test item hd) rtl)
             (t (cons hd rtl))))))
 
+(defgeneric clean (place window)
+  (:documentation "Returns `place' (a window or a list of window) where
+  `window' has been removed."))
+(defmethod clean ((place window) (window window)) (unless (win= place window) place))
+(defmethod clean ((place list) (window window)) (rrem window place :test #'window-equal))
+
 (defun minus (window)
   "House keeping when window is unmapped. Returns the window to be
-focused or nil if nothing has to be done."
+focused."
   (when (member window *windows* :test #'win=)
-    (setf *windows* (rrem window *windows* :test #'window-equal))
-    (let (res)
-      (when (win= window *curr*)
-        (let ((ncurr (find-if #'(lambda (w) (win= w *curr*)) *windows*)))
-          (cond (ncurr (setf *curr* ncurr
-                             res nil))
-                (t (setf *curr* (next #'1+ *last*)
-                         res *last*)))))
-      (when (win= window *last*)
-        (let ((nlast (find-if #'(lambda (w) (win= w *last*)) *windows*)))
-          (setf *last* (if nlast nlast (next #'1+ *curr*))
-                res nil)))
-      (when (win= *curr* *last*) (setf *last* (setf res nil)))
-      res)))
+    (setf *windows* (clean *windows* window))
+    (setf *curr* (clean *curr* window))
+    (setf *last* (clean *last* window))
+    (unless *curr* (setf *curr* *last*))
+    (when (or (null *last*) (win= *curr* *last*))
+      (setf *last* (next #'1+ *curr*)))
+    *curr*))
 
 (defun toggle-hide ()
   "Hide or show every managed window."
@@ -339,8 +338,7 @@ don't contain `sofar'."
            (focus (find child *windows* :test #'win=))
            (grab-pointer child '(:pointer-motion :button-release))
            (when (sc= *resize* state code)
-             (warp-pointer child (drawable-width child)
-                           (drawable-height child)))
+             (warp-pointer child (drawable-width child) (drawable-height child)))
            (let ((lst (multiple-value-list (query-pointer *root*))))
              (setf last-x (sixth lst)
                    last-y (seventh lst)))))))
