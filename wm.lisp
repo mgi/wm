@@ -18,9 +18,9 @@
 (defparameter *handlers* (make-list (length xlib::*event-key-vector*)
                                     :initial-element #'(lambda (&rest slots))))
 (defparameter *windows* nil "List of managed and mapped windows.")
-(defparameter *hidden* nil "List of hidden windows.")
 (defparameter *last* nil "Last focused window.")
 (defparameter *curr* nil "Current focused window.")
+(defvar *dim* nil "Dimension of current window before fullscreen.")
 
 (defmacro defhandler (event keys &body body)
   (let ((fn-name (gensym))
@@ -59,11 +59,21 @@ for mouse button."
        (setf *shortcuts* (remove ,sc *shortcuts* :test #'equal :key #'car))
        (push (cons ,sc #'(lambda () ,@body)) *shortcuts*))))
 
+(defun move (window x y w h)
+  "Move a window."
+  (with-state (window)
+    (setf (drawable-x window) x (drawable-y window) y
+          (drawable-width window) w (drawable-height window) h)))
+
 (defgeneric focus (window))
 
 (defmethod focus :before (window)
   (unless (null window)
-    (unless (win= window *curr*) (setf *last* *curr*))
+    (unless (win= window *curr*)
+      (setf *last* *curr*)
+      (when *dim*
+        (apply #'move *curr* *dim*)
+        (setf *dim* nil)))
     (setf *curr* window)))
 
 (defmethod focus ((window window))
@@ -159,14 +169,18 @@ focused."
       (setf *last* (next #'1+ *curr*)))
     *curr*))
 
-(defun toggle-hide ()
-  "Hide or show every managed window."
-  (cond (*hidden*
-         (dolist (w *hidden*) (mapw w))
-         (setf *hidden* nil))
-        (t
-         (setf *hidden* (copy-tree *windows*))
-         (dolist (w *windows*) (unmapw w)))))
+(defun fullscreen ()
+  "Toggle fullscreen state of the current window."
+  (unless (listp *curr*)
+    (cond (*dim*
+           (apply #'move *curr* *dim*)
+           (setf *dim* nil))
+          (t (let* ((screen (display-default-screen *display*))
+                    (sw (screen-width screen))
+                    (sh (screen-height screen)))
+               (setf *dim* (list (drawable-x *curr*) (drawable-y *curr*)
+                                 (drawable-width *curr*) (drawable-height *curr*)))
+               (move *curr* 0 0 sw sh))))))
 
 (defmacro defror (command)
   "Define a raise or run command."
@@ -299,8 +313,7 @@ don't contain `sofar'."
 (defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (:control #\t) (focus *last*))
 (defshortcut (#\a) (app))
-(defshortcut (#\f) (finder))
-(defshortcut (#\h) (toggle-hide))
+(defshortcut (#\f) (fullscreen))
 
 (defun send-prefix ()
   (let ((focus (input-focus *display*)))
