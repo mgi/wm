@@ -20,7 +20,8 @@
    - 'w' runs or raise a web browser (configurable in wm.lisp);
    - 'l' locks the screen with xlock;
    - 'a' is the app launcher: keys hit after will look for the correct
-     app.
+     app;
+   - 'f' toggles the current window to fullscreen.
 ** Mouse
    'Meta' (or 'Alt') is the prefix for the mouse.
    - 'left button' moves the window;
