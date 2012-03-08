@@ -76,31 +76,25 @@ for mouse button."
         (setf *dim* nil)))
     (setf *curr* window)))
 
-(defmethod focus ((window window))
+(defun focus-1 (window)
   (when (eql (window-map-state window) :viewable)
-    (setf (window-priority window) :above)
-    (set-input-focus *display* window :pointer-root)))
+    (setf (window-priority window) :above)))
+
+(defmethod focus ((window window))
+  (focus-1 window)
+  (set-input-focus *display* window :pointer-root))
 
 (defmethod focus ((window list))
   (unless (null window)
-    (dolist (w window)
-      (when (eql (window-map-state w) :viewable)
-        (setf (window-priority w) :above)))
+    (dolist (w window) (focus-1 w))
     (set-input-focus *display* :pointer-root :pointer-root)
     (let ((focus (first window)))
       (setf (window-priority focus) :above))))
-
-(defmethod focus :after (window) (display-finish-output *display*))
 
 (defmethod win= ((a window) (b window)) (window-equal a b))
 (defmethod win= ((a list) (b window)) (loop for w in a thereis (window-equal w b)))
 (defmethod win= ((a window) (b list)) (loop for w in b thereis (window-equal w a)))
 (defmethod win= ((a list) (b list)) (loop for w in a thereis (win= w b)))
-
-(defmethod mapw ((w window)) (map-window w))
-(defmethod mapw ((w list)) (dolist (x w) (map-window x)))
-(defmethod unmapw ((w window)) (unmap-window w))
-(defmethod unmapw ((w list)) (dolist (x w) (unmap-window x)))
 
 (defun next (&optional (way #'1+) (window *curr*))
   (when *windows*
@@ -164,10 +158,10 @@ focused."
     (setf *windows* (clean *windows* window))
     (setf *curr* (clean *curr* window))
     (setf *last* (clean *last* window))
-    (unless *curr* (setf *curr* *last*))
-    (when (or (null *last*) (win= *curr* *last*))
-      (setf *last* (next #'1+ *curr*)))
-    *curr*))
+    (when (null *last*) (setf *last* (next #'1+ *curr*)))
+    (when (null *curr*)
+      (setf *curr* *last*)
+      *curr*)))
 
 (defun fullscreen ()
   "Toggle fullscreen state of the current window."
