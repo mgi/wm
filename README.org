@@ -10,9 +10,9 @@
 
 * Help
 ** Install
-   - Install sbcl (http://www.sbcl.org) on your system (should be
+   - Install sbcl ([[http://www.sbcl.org]]) on your system (should be
      available via your system's packages);
-   - Install quicklisp (http://www.quicklisp.org);
+   - Install quicklisp ([[http://www.quicklisp.org]]);
    - Tweak line 5 of wm.lisp to point to your quicklisp directory;
    - Append "[your path to]/wm.lisp" to .xinitrc or .xsession.
 ** Shortcuts
