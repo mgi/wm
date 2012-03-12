@@ -3,12 +3,18 @@
 
   - Common Lisp;
   - Just the features I want;
-  - Beautiful and easy to maintain code;
+  - Simple and easy to maintain code;
   - No more than 500 SLOC;
   - No configuration outside the main program. Don't do anything fancy
     (text, icon, cursor or color) to avoid the temptation.
 
 * Help
+** Install
+   - Install sbcl (http://www.sbcl.org) on your system (should be
+     available via your system's packages);
+   - Install quicklisp (http://www.quicklisp.org);
+   - Tweak line 5 of wm.lisp to point to your quicklisp directory;
+   - Append "[your path to]/wm.lisp" to .xinitrc or .xsession.
 ** Shortcuts
    'Control-t' is the prefix key. Every shortcut starts with it.
    - 'n' or 'C-n' is next managed window;
@@ -27,3 +33,7 @@
    - 'left button' moves the window;
    - 'right button' resize the window;
    - 'C-middle button' close the window.
+** Emacs
+   One of the first thing that wm.lisp does is to create a swank
+   server on port 4005. You can then connect Emacs/SLIME to it (M-x
+   slime-connect) and hack the window manager live.

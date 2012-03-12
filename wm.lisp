@@ -2,13 +2,14 @@
 ;;; Used to be the most simple window manager on earth. It started as
 ;;; a fork of the lisp version of tinywm.
 
+(load "prog/lisp/quicklisp/setup.lisp")
+
 ;;; Load swank and make a server
-(require 'asdf)
-(asdf:load-system :swank)
+(ql:quickload :swank)
 (swank:create-server :port 4005 :dont-close t)
 
 ;;; Load CLX and make a package
-(asdf:load-system :clx)
+(ql:quickload :clx)
 (defpackage :most.simple.wm
   (:use :common-lisp :xlib :sb-ext))
 (in-package :most.simple.wm)
