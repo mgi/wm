@@ -24,7 +24,7 @@
 (defvar *dim* nil "Dimension of current window before fullscreen.")
 
 (defmacro defhandler (event keys &body body)
-  (let ((fn-name (gensym))
+  (let ((fn-name (gensym (symbol-name event)))
         (event-slots (gensym)))
     `(labels ((,fn-name (&rest ,event-slots &key ,@keys &allow-other-keys)
                 (declare (ignore ,event-slots))
@@ -114,7 +114,8 @@ for mouse button."
                           #'(lambda (w)
                               (multiple-value-bind (name class) (xclass w)
                                 (or (string= class "Startup")
-                                    (string= class "DX")))))
+                                    (string= class "DX")
+                                    (string= class "GAR")))))
   "List of predicates against which windows are grouped")
 
 (defun plus (window)
