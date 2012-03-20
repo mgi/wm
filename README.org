@@ -6,7 +6,9 @@
   - Simple and easy to maintain code;
   - No more than 500 SLOC;
   - No configuration outside the main program. Don't do anything fancy
-    (text, icon, cursor or color) to avoid the temptation.
+    (text, icon, cursor or color) to avoid the temptation;
+  - No [[http://standards.freedesktop.org/wm-spec/wm-spec-latest.html][EWMH]] as implementing this shit would bloat the code for little
+    (if any) improvements.
 
 * Help
 ** Install
