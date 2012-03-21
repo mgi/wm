@@ -98,9 +98,9 @@ for mouse button."
 (defmethod win= ((a window) (b list)) (loop for w in b thereis (window-equal w a)))
 (defmethod win= ((a list) (b list)) (loop for w in a thereis (win= w b)))
 
-(defun next (&optional (way #'1+) (window *curr*))
+(defun next (&optional (way #'1+))
   (when *windows*
-    (let* ((nw (or (position window *windows* :test #'win=) 0))
+    (let* ((nw (or (position *curr* *windows* :test #'win=) 0))
            (n (length *windows*))
            (next (mod (funcall way nw) n)))
       (nth next *windows*))))
@@ -165,7 +165,7 @@ focused."
     (setf *windows* (clean *windows* window))
     (setf *curr* (clean *curr* window))
     (setf *last* (clean *last* window))
-    (when (null *last*) (setf *last* (next #'1+ *curr*)))
+    (when (null *last*) (setf *last* (next #'1+)))
     (when (null *curr*)
       (setf *curr* *last*)
       *curr*)))
