@@ -57,7 +57,6 @@ for mouse button."
   without argument."
   (let ((sc (gensym)))
     `(let ((,sc (compile-shortcut ,@key)))
-       (setf *shortcuts* (remove ,sc *shortcuts* :test #'equal :key #'car))
        (push (cons ,sc #'(lambda () ,@body)) *shortcuts*))))
 
 (defun move (window x y w h)
