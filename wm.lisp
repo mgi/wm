@@ -110,6 +110,9 @@ for mouse button."
 (defparameter *groupers* (list
                           #'(lambda (w)
                               (multiple-value-bind (name class) (xclass w)
+                                (string= class "Gimp")))
+                          #'(lambda (w)
+                              (multiple-value-bind (name class) (xclass w)
                                 (string= class "Idl")))
                           #'(lambda (w)
                               (multiple-value-bind (name class) (xclass w)
