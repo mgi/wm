@@ -108,9 +108,7 @@ for mouse button."
 (defmethod xclass ((w list)) (get-wm-class (first w)))
 
 (defparameter *groupers* (list
-                          #'(lambda (w)
-                              (multiple-value-bind (name class) (xclass w)
-                                (string= class "Gimp")))
+                          #'(lambda (w) (string= (subseq (xclass w) 0 4) "gimp"))
                           #'(lambda (w)
                               (multiple-value-bind (name class) (xclass w)
                                 (string= class "Idl")))
