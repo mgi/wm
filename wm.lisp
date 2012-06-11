@@ -16,12 +16,12 @@
 
 (defvar *display* (open-default-display))
 (defvar *root* (screen-root (display-default-screen *display*)))
+(defvar *windows* nil "List of managed and mapped windows.")
+(defvar *last* nil "Last focused window.")
+(defvar *curr* nil "Current focused window.")
+(defvar *dim* nil "Dimension of current window before fullscreen.")
 (defparameter *handlers* (make-list (length xlib::*event-key-vector*)
                                     :initial-element #'(lambda (&rest slots))))
-(defparameter *windows* nil "List of managed and mapped windows.")
-(defparameter *last* nil "Last focused window.")
-(defparameter *curr* nil "Current focused window.")
-(defvar *dim* nil "Dimension of current window before fullscreen.")
 
 (defmacro defhandler (event keys &body body)
   (let ((fn-name (gensym (symbol-name event)))
