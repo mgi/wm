@@ -32,12 +32,6 @@
 
 (defun xclass (window) (multiple-value-bind (name class) (get-wm-class window) class))
 
-(defmethod print-object ((window window) stream)
-    (format stream "#<WINDOW 0x~X ~A ~A>"
-            (drawable-id window)
-            (xclass window)
-            (wm-name window)))
-
 (defparameter *groupers* (list
                           #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal))
                           #'(lambda (w) (string= (xclass w) "Idl"))
