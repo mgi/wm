@@ -16,7 +16,6 @@
 
 (defvar *display* (open-default-display))
 (defvar *root* (screen-root (display-default-screen *display*)))
-(defvar *windows* nil "List of managed and mapped windows.")
 (defvar *last* nil "Last focused window.")
 (defvar *curr* nil "Current focused window.")
 (defvar *dim* nil "Dimension of current window before fullscreen.")
@@ -30,6 +29,24 @@
                 (declare (ignore ,event-slots))
                 ,@body))
        (setf (elt *handlers* (position ,event xlib::*event-key-vector*)) #',fn-name))))
+
+(defun xclass (window) (multiple-value-bind (name class) (get-wm-class window) class))
+
+(defmethod print-object ((window window) stream)
+    (format stream "#<WINDOW 0x~X ~A ~A>"
+            (drawable-id window)
+            (xclass window)
+            (wm-name window)))
+
+(defparameter *groupers* (list
+                          #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal))
+                          #'(lambda (w) (string= (xclass w) "Idl"))
+                          #'(lambda (w)
+                              (let ((class (xclass w)))
+                                (or (string= class "Startup")
+                                    (string= class "DX")
+                                    (string= class "GAR")))))
+  "List of predicates against which windows are grouped")
 
 (defun mods (l) (butlast l))
 (defun kchar (l) (car (last l)))
@@ -65,78 +82,39 @@ for mouse button."
     (setf (drawable-x window) x (drawable-y window) y
           (drawable-width window) w (drawable-height window) h)))
 
-(defgeneric focus (window))
+(defun ok-win-p (window)
+  "Is this window managable?"
+  (and (eql (window-map-state window) :viewable)
+       (eql (window-override-redirect window) :off)))
 
-(defmethod focus :before (window)
+(defun focus (window)
   (unless (null window)
-    (unless (win= window *curr*)
+    (unless (window-equal window *curr*)
       (setf *last* *curr*)
       (when *dim*
         (apply #'move *curr* *dim*)
         (setf *dim* nil)))
-    (setf *curr* window)))
+    (setf *curr* window)
 
-(defun focus-1 (window)
-  (when (eql (window-map-state window) :viewable)
-    (setf (window-priority window) :above)
-    (set-input-focus *display* window :pointer-root)))
-
-(defmethod focus ((window window)) (focus-1 window))
-
-(defmethod focus ((window list))
-  (unless (null window)
-    (dolist (w window) (focus-1 w))
-    (set-input-focus *display* :pointer-root :pointer-root)
-    (let ((focus (first window)))
-      (setf (window-priority focus) :above))))
-
-(defmethod focus :after (window) (display-finish-output *display*))
-
-(defmethod win= ((a window) (b window)) (window-equal a b))
-(defmethod win= ((a list) (b window)) (loop for w in a thereis (window-equal w b)))
-(defmethod win= ((a window) (b list)) (loop for w in b thereis (window-equal w a)))
-(defmethod win= ((a list) (b list)) (loop for w in a thereis (win= w b)))
+    (let* ((grouper (find-if #'(lambda (f) (funcall f window)) *groupers*))
+           (group (when (functionp grouper)
+                    (loop for w in (query-tree *root*)
+                          when (and (ok-win-p w) (funcall grouper w)) collect w))))
+      (cond (group
+             (dolist (w group) (setf (window-priority w) :above))
+             (set-input-focus *display* :pointer-root :pointer-root))
+            (t (set-input-focus *display* window :pointer-root)))
+      (when (ok-win-p window)
+        (setf (window-priority window) :above))
+      (display-finish-output *display*))))
 
 (defun next (&optional (way #'1+))
-  (when *windows*
-    (let* ((nw (or (position *curr* *windows* :test #'win=) 0))
-           (n (length *windows*))
-           (next (mod (funcall way nw) n)))
-      (nth next *windows*))))
-
-(defmethod xclass ((w window)) (get-wm-class w))
-(defmethod xclass ((w list)) (get-wm-class (first w)))
-
-(defparameter *groupers* (list
-                          #'(lambda (w) (search "gimp" (xclass w) :test #'char-equal))
-                          #'(lambda (w)
-                              (multiple-value-bind (name class) (xclass w)
-                                (string= class "Idl")))
-                          #'(lambda (w)
-                              (multiple-value-bind (name class) (xclass w)
-                                (or (string= class "Startup")
-                                    (string= class "DX")
-                                    (string= class "GAR")))))
-  "List of predicates against which windows are grouped")
-
-(defun plus (window)
-  "Add window to the list of managed windows. Take care of grouping
-and don't add window already in the list."
-  (let ((grouper (find-if #'(lambda (f) (funcall f window)) *groupers*)))
-    (labels ((radd (item list pred test)
-               (cond ((and (null list) (functionp pred))
-                      (list (list item)))
-                     ((null list) (list item))
-                     (t (let ((hd (car list))
-                              (tl (cdr list)))
-                          (cond ((funcall test hd item) list)
-                                ((and (listp hd)
-                                      (functionp pred)
-                                      (funcall pred (car hd)))
-                                 (cons (cons item hd) tl))
-                                (t (cons hd (radd item tl pred test)))))))))
-      (setf *windows* (radd window *windows* grouper #'win=))
-      (find window *windows* :test #'win=))))
+  (let* ((windows (query-tree *root*))
+         (nw (or (position *curr* windows :test #'window-equal) 0))
+         (n (length windows)))
+    (do* ((next (mod (funcall way nw) n) (mod (funcall way next) n))
+          (win (nth next windows) (nth next windows)))
+         ((ok-win-p win) win))))
 
 (defun rrem (item list &key (test #'eql))
   "Recursive remove."
@@ -152,23 +130,15 @@ and don't add window already in the list."
             ((funcall test item hd) rtl)
             (t (cons hd rtl))))))
 
-(defgeneric clean (place window)
-  (:documentation "Returns `place' (a window or a list of window) where
-  `window' has been removed."))
-(defmethod clean ((place window) (window window)) (unless (win= place window) place))
-(defmethod clean ((place list) (window window)) (rrem window place :test #'window-equal))
-
 (defun minus (window)
   "House keeping when window is unmapped. Returns the window to be
 focused."
-  (when (member window *windows* :test #'win=)
-    (setf *windows* (clean *windows* window))
-    (setf *curr* (clean *curr* window))
-    (setf *last* (clean *last* window))
-    (when (null *last*) (setf *last* (next #'1+)))
-    (when (null *curr*)
-      (setf *curr* *last*)
-      *curr*)))
+  (when (window-equal *curr* window) (setf *curr* nil))
+  (when (window-equal *last* window) (setf *last* nil))
+  (when (null *last*) (setf *last* (next #'1+)))
+  (when (null *curr*)
+    (setf *curr* *last*)
+    *curr*))
 
 (defun fullscreen ()
   "Toggle fullscreen state of the current window."
@@ -190,10 +160,9 @@ focused."
     `(defun ,command ()
        (let* ((,cmdstr (string-downcase (string ',command)))
               (,win (find-if #'(lambda (w)
-                                 (string-equal
-                                  ,cmdstr
-                                  (second (multiple-value-list (xclass w)))))
-                             *windows*)))
+                                 (and (ok-win-p w)
+                                      (string-equal ,cmdstr (xclass w))))
+                             (query-tree *root*))))
          (if ,win
              (focus ,win)
              (run-program ,cmdstr nil :wait nil :search t))))))
@@ -292,7 +261,7 @@ don't contain `sofar'."
 
 (defun finder ()
   (grab-keyboard *root*)
-  (unwind-protect (recdo *windows* #'focus :key #'xclass :matcher #'in-matcher)
+  (unwind-protect (recdo (query-tree *root*) #'focus :key #'xclass :matcher #'in-matcher)
     (ungrab-keyboard *display*)))
 
 ;;; Mouse shorcuts
@@ -318,7 +287,7 @@ don't contain `sofar'."
 
 (defun send-prefix ()
   (let ((focus (input-focus *display*)))
-    (when (win= focus *curr*)
+    (when (window-equal focus *curr*)
       (send-event focus :key-press (make-event-mask :key-press)
                         :window focus
                         :code (code *prefix*)
@@ -349,7 +318,7 @@ don't contain `sofar'."
            (send-message child :WM_PROTOCOLS (intern-atom *display* :WM_DELETE_WINDOW)))
           (t
            (setf last-button code)
-           (focus (find child *windows* :test #'win=))
+           (focus child)
            (grab-pointer child '(:pointer-motion :button-release))
            (when (sc= *resize* state code)
              (warp-pointer child (drawable-width child) (drawable-height child)))
@@ -377,11 +346,18 @@ don't contain `sofar'."
 
 (defhandler :map-notify (window override-redirect-p)
   (unless override-redirect-p
-    (focus (plus window))))
+    (focus window)))
 
 (defhandler :unmap-notify (window) (focus (minus window)))
 
-;;; Main
+(defun evloop ()
+  (do ()
+      ;; ((eql (handler-case (process-event *display* :handler *handlers* :discard-p t)
+      ;;         ((or window-error drawable-error) (c)
+      ;;           (format t "Error ~a~%" c))) 'quit))
+      ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit))))
+
+
 (defun main ()
   ;; Grab prefix and mouse buttons on root
   (grab-key *root* (code *prefix*) :modifiers (state *prefix*))
@@ -389,17 +365,10 @@ don't contain `sofar'."
   (grab-button *root* (code *resize*) '(:button-press) :modifiers (state *resize*))
   (grab-button *root* (code *close*) '(:button-press) :modifiers (state *close*))
 
-  ;; Populate list of windows
-  (dolist (w (query-tree *root*))
-    (when (and (eql (window-map-state w) :viewable)
-               (eql (window-override-redirect w) :off))
-      (plus w)))
-
   (intern-atom *display* :_motif_wm_hints)
   (setf (window-event-mask *root*) '(:substructure-notify))
 
-  (unwind-protect
-       (do () ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit)))
+  (unwind-protect (evloop)
     (dolist (b (list *move* *resize* *close*))
       (ungrab-button *root* (code b) :modifiers (state b)))
     (ungrab-key *root* (code *prefix*) :modifiers (state *prefix*))
