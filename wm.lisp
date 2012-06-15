@@ -81,9 +81,12 @@ for mouse button."
   (and (eql (window-map-state window) :viewable)
        (eql (window-override-redirect window) :off)))
 
+(defun win= (a b)
+  (and (typep a 'window) (typep b 'window) (window-equal a b)))
+
 (defun focus (window)
   (unless (null window)
-    (unless (window-equal window *curr*)
+    (unless (win= window *curr*)
       (setf *last* *curr*)
       (when *dim*
         (apply #'move *curr* *dim*)
@@ -102,34 +105,20 @@ for mouse button."
         (setf (window-priority window) :above))
       (display-finish-output *display*))))
 
-(defun next (&optional (way #'1+))
+(defun next ()
   (let* ((windows (query-tree *root*))
-         (nw (or (position *curr* windows :test #'window-equal) 0))
+         (nw (or (position *curr* windows :test #'win=) 0))
          (n (length windows)))
-    (do* ((next (mod (funcall way nw) n) (mod (funcall way next) n))
+    (do* ((next (mod (1+ nw) n) (mod (1+ next) n))
           (win (nth next windows) (nth next windows)))
          ((ok-win-p win) win))))
-
-(defun rrem (item list &key (test #'eql))
-  "Recursive remove."
-  (unless (null list)
-    (let* ((hd (car list))
-           (tl (cdr list))
-           (rtl (rrem item tl :test test)))
-      (cond ((listp hd)
-             (let ((rhd (rrem item hd :test test)))
-               (if rhd
-                   (cons rhd rtl)
-                   rtl)))
-            ((funcall test item hd) rtl)
-            (t (cons hd rtl))))))
 
 (defun minus (window)
   "House keeping when window is unmapped. Returns the window to be
 focused."
-  (when (window-equal *curr* window) (setf *curr* nil))
-  (when (window-equal *last* window) (setf *last* nil))
-  (when (null *last*) (setf *last* (next #'1+)))
+  (when (win= *curr* window) (setf *curr* nil))
+  (when (win= *last* window) (setf *last* nil))
+  (when (null *last*) (setf *last* (next)))
   (when (null *curr*)
     (setf *curr* *last*)
     *curr*))
@@ -227,7 +216,7 @@ don't have the same character at the same place as `sofar'."
 (defun in-matcher (sofar)
   "Build a matcher to eliminate (with remove-if-not) strings that
 don't contain `sofar'."
-  #'(lambda (str) (search sofar str :test #'char=)))
+  #'(lambda (str) (search sofar str :test #'char-equal)))
 
 (defun recdo-1 (sofar list fn matcher key)
   (cond ((null list))
@@ -272,16 +261,14 @@ don't contain `sofar'."
 (defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
 (defshortcut (:mod-1 #\e) (run-program "envi" nil :wait nil :search t))
 (defshortcut (#\n) (focus (next)))
-(defshortcut (#\p) (focus (next #'1-)))
 (defshortcut (:control #\n) (focus (next)))
-(defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (:control #\t) (focus *last*))
 (defshortcut (#\a) (app))
 (defshortcut (#\f) (fullscreen))
 
 (defun send-prefix ()
   (let ((focus (input-focus *display*)))
-    (when (window-equal focus *curr*)
+    (when (win= focus *curr*)
       (send-event focus :key-press (make-event-mask :key-press)
                         :window focus
                         :code (code *prefix*)
@@ -361,6 +348,8 @@ don't contain `sofar'."
 
   (intern-atom *display* :_motif_wm_hints)
   (setf (window-event-mask *root*) '(:substructure-notify))
+
+  (setf *last* (setf *curr* (find-if #'ok-win-p (query-tree *root*))))
 
   (unwind-protect (evloop)
     (dolist (b (list *move* *resize* *close*))
