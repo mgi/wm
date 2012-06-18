@@ -91,8 +91,6 @@ for mouse button."
       (when *dim*
         (apply #'move *curr* *dim*)
         (setf *dim* nil)))
-    (setf *curr* window)
-
     (let* ((grouper (find-if #'(lambda (f) (funcall f window)) *groupers*))
            (group (when (functionp grouper)
                     (loop for w in (query-tree *root*)
@@ -103,6 +101,7 @@ for mouse button."
             (t (set-input-focus *display* window :pointer-root)))
       (when (ok-win-p window)
         (setf (window-priority window) :above))
+      (setf *curr* window)
       (display-finish-output *display*))))
 
 (defun next ()
@@ -125,16 +124,15 @@ focused."
 
 (defun fullscreen ()
   "Toggle fullscreen state of the current window."
-  (unless (listp *curr*)
-    (cond (*dim*
-           (apply #'move *curr* *dim*)
-           (setf *dim* nil))
-          (t (let* ((screen (display-default-screen *display*))
-                    (sw (screen-width screen))
-                    (sh (screen-height screen)))
-               (setf *dim* (list (drawable-x *curr*) (drawable-y *curr*)
-                                 (drawable-width *curr*) (drawable-height *curr*)))
-               (move *curr* 0 0 sw sh))))))
+  (cond (*dim*
+         (apply #'move *curr* *dim*)
+         (setf *dim* nil))
+        (t (let* ((screen (display-default-screen *display*))
+                  (sw (screen-width screen))
+                  (sh (screen-height screen)))
+             (setf *dim* (list (drawable-x *curr*) (drawable-y *curr*)
+                               (drawable-width *curr*) (drawable-height *curr*)))
+             (move *curr* 0 0 sw sh)))))
 
 (defmacro defror (command)
   "Define a raise or run command."
@@ -337,7 +335,6 @@ don't contain `sofar'."
       ;;         ((or window-error drawable-error) (c)
       ;;           (format t "Error ~a~%" c))) 'quit))
       ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit))))
-
 
 (defun main ()
   ;; Grab prefix and mouse buttons on root
