@@ -90,10 +90,10 @@ for mouse button."
 (defun focus (window)
   (unless (null window)
     (unless (win= window *curr*)
-      (setf *last* *curr*)
       (when *dim*
         (apply #'move *curr* *dim*)
-        (setf *dim* nil)))
+        (setf *dim* nil))
+      (setf *last* *curr*))
     (let* ((grouper (find-if #'(lambda (f) (funcall f window)) *groupers*))
            (group (when (functionp grouper)
                     (loop for w in (windows)
@@ -291,7 +291,7 @@ don't contain `sofar'."
            (setf waiting-shortcut t)))))
 
 (defhandler :button-press (code state child)
-  (when (and child (eql (window-override-redirect child) :off))
+  (when (and child (eql (window-override-redirect child) :off) (null *dim*))
     (cond ((sc= *close* state code)
            (send-message child :WM_PROTOCOLS (intern-atom *display* :WM_DELETE_WINDOW)))
           (t
