@@ -76,13 +76,16 @@ for mouse button."
     (setf (drawable-x window) x (drawable-y window) y
           (drawable-width window) w (drawable-height window) h)))
 
-(defun ok-win-p (window)
-  "Is this window managable?"
-  (and (eql (window-map-state window) :viewable)
-       (eql (window-override-redirect window) :off)))
-
 (defun win= (a b)
   (and (typep a 'window) (typep b 'window) (window-equal a b)))
+
+(defun windows ()
+  "List managable windows."
+  (labels ((ok-win-p (window)
+             (and (eql (window-map-state window) :viewable)
+                  (eql (window-override-redirect window) :off))))
+    (loop for w in (query-tree *root*)
+          when (ok-win-p w) collect w)))
 
 (defun focus (window)
   (unless (null window)
@@ -93,24 +96,22 @@ for mouse button."
         (setf *dim* nil)))
     (let* ((grouper (find-if #'(lambda (f) (funcall f window)) *groupers*))
            (group (when (functionp grouper)
-                    (loop for w in (query-tree *root*)
-                          when (and (ok-win-p w) (funcall grouper w)) collect w))))
+                    (loop for w in (windows)
+                          when (funcall grouper w) collect w))))
       (cond (group
              (dolist (w group) (setf (window-priority w) :above))
              (set-input-focus *display* :pointer-root :pointer-root))
             (t (set-input-focus *display* window :pointer-root)))
-      (when (ok-win-p window)
-        (setf (window-priority window) :above))
-      (setf *curr* window)
+      (setf (window-priority window) :above
+            *curr* window)
       (display-finish-output *display*))))
 
 (defun next ()
-  (let* ((windows (query-tree *root*))
+  (let* ((windows (windows))
          (nw (or (position *curr* windows :test #'win=) 0))
          (n (length windows)))
-    (do* ((next (mod (1+ nw) n) (mod (1+ next) n))
-          (win (nth next windows) (nth next windows)))
-         ((ok-win-p win) win))))
+    (unless (zerop n)
+      (nth (mod (1+ nw) n) windows))))
 
 (defun minus (window)
   "House keeping when window is unmapped. Returns the window to be
@@ -140,10 +141,8 @@ focused."
         (cmdstr (gensym)))
     `(defun ,command ()
        (let* ((,cmdstr (string-downcase (string ',command)))
-              (,win (find-if #'(lambda (w)
-                                 (and (ok-win-p w)
-                                      (string-equal ,cmdstr (xclass w))))
-                             (query-tree *root*))))
+              (,win (find-if #'(lambda (w) (string-equal ,cmdstr (xclass w)))
+                             (windows))))
          (if ,win
              (focus ,win)
              (run-program ,cmdstr nil :wait nil :search t))))))
@@ -242,7 +241,7 @@ don't contain `sofar'."
 
 (defun finder ()
   (grab-keyboard *root*)
-  (unwind-protect (recdo (query-tree *root*) #'focus :key #'xclass :matcher #'in-matcher)
+  (unwind-protect (recdo (windows) #'focus :key #'xclass :matcher #'in-matcher)
     (ungrab-keyboard *display*)))
 
 ;;; Mouse shorcuts
@@ -346,7 +345,7 @@ don't contain `sofar'."
   (intern-atom *display* :_motif_wm_hints)
   (setf (window-event-mask *root*) '(:substructure-notify))
 
-  (setf *last* (setf *curr* (find-if #'ok-win-p (query-tree *root*))))
+  (setf *last* (setf *curr* (first (windows))))
 
   (unwind-protect (evloop)
     (dolist (b (list *move* *resize* *close*))
