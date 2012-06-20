@@ -271,6 +271,7 @@ don't contain `sofar'."
 (defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (:control #\t) (focus *last*))
 (defshortcut (#\a) (app))
+(defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
 
 (defun send-prefix ()
