@@ -89,7 +89,7 @@ for mouse button."
 
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
-  (find-if #'(lambda (f) (funcall f window)) *groupers*))
+  (and window (find-if #'(lambda (f) (funcall f window)) *groupers*)))
 
 (defun focus (window)
   (unless (null window)
