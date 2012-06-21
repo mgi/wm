@@ -18,23 +18,26 @@
    - Tweak line 5 of wm.lisp to point to your quicklisp directory;
    - Append "[your path to]/wm.lisp" to .xinitrc or .xsession.
 ** Shortcuts
-   'Control-t' is the prefix key. Every shortcut starts with it.
-   - 'n' or 'C-n' is next managed window;
-   - 'p' or 'C-p' is previous managed window;
-   - 'C-t' is last used window;
-   - 't' sends a 'C-t' to current window;
-   - 'c' runs a xterm;
-   - 'e' runs or raise an emacs;
-   - 'w' runs or raise a web browser (configurable in wm.lisp);
-   - 'l' locks the screen with xlock;
-   - 'a' is the app launcher: keys hit after will look for the correct
+   Control-t is the prefix key. Every shortcut starts with it.
+   - n or C-n is next managed window;
+   - p or C-p is previous managed window;
+   - C-t is last used window;
+   - t sends a C-t to current window;
+   - c runs a xterm;
+   - e runs or raise an emacs;
+   - w runs or raise a web browser (configurable in wm.lisp);
+   - C-l locks the screen with xlock;
+   - a is the app launcher: keys hit after will look for the correct
      app;
-   - 'f' toggles the current window to fullscreen.
+   - ' is the class finder: works like the app launcher but fetch
+     the first window of the given class;
+   - f toggles the current window to fullscreen (and revert
+     size/position when changing focus).
 ** Mouse
-   'Meta' (or 'Alt') is the prefix for the mouse.
-   - 'left button' moves the window;
-   - 'right button' resize the window;
-   - 'C-middle button' close the window.
+   Meta (or Alt) is the prefix for the mouse.
+   - left button moves the window;
+   - right button resize the window;
+   - C-middle button close the window.
 ** Emacs
    One of the first thing that wm.lisp does is to create a swank
    server on port 4005. You can then connect Emacs/SLIME to it (M-x
