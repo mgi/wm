@@ -124,7 +124,8 @@ for mouse button."
 (defun minus (window)
   "House keeping when window is unmapped. Returns the window to be
 focused."
-  (when (win= *curr* window) (setf *curr* nil))
+  (when (win= *curr* window)
+    (setf *curr* nil *dim* nil))
   (when (win= *last* window) (setf *last* nil))
   (when (null *last*) (setf *last* (next)))
   (when (null *curr*)
