@@ -341,11 +341,7 @@ don't contain `sofar'."
 (defhandler :unmap-notify (window) (focus (minus window)))
 
 (defun evloop ()
-  (do ()
-      ;; ((eql (handler-case (process-event *display* :handler *handlers* :discard-p t)
-      ;;         ((or window-error drawable-error) (c)
-      ;;           (format t "Error ~a~%" c))) 'quit))
-      ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit))))
+  (do () ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit))))
 
 (defun main ()
   ;; Grab prefix and mouse buttons on root
