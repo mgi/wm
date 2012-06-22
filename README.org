@@ -32,7 +32,8 @@
    - ' is the class finder: works like the app launcher but fetch
      the first window of the given class;
    - f toggles the current window to fullscreen (and revert
-     size/position when changing focus).
+     size/position when changing focus);
+   - . centers the current window.
 ** Mouse
    Meta (or Alt) is the prefix for the mouse.
    - left button moves the window;

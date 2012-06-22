@@ -51,7 +51,8 @@ for mouse button."
   (let ((k (kchar l))
         (state (apply #'make-state-mask (mods l))))
     (if (characterp k)
-        (let ((c (keysym->keycodes *display* (car (character->keysyms k)))))
+        (let ((c (car (last (multiple-value-list 
+                             (keysym->keycodes *display* (car (character->keysyms k))))))))
           (cons state c))
         (cons state k))))
 (defun state (l) (car l))
@@ -143,6 +144,16 @@ focused."
              (setf *dim* (list (drawable-x *curr*) (drawable-y *curr*)
                                (drawable-width *curr*) (drawable-height *curr*)))
              (move *curr* 0 0 sw sh)))))
+
+(defun center ()
+  "Center the current window."
+  (let* ((screen (display-default-screen *display*))
+         (sw (screen-width screen))
+         (sh (screen-height screen))
+         (w (drawable-width *curr*))
+         (h (drawable-height *curr*)))
+    (move *curr* (- (truncate sw 2) (truncate w 2))
+          (- (truncate sh 2) (truncate h 2)) w h)))
 
 (defmacro defror (command)
   "Define a raise or run command."
@@ -274,6 +285,7 @@ don't contain `sofar'."
 (defshortcut (#\a) (app))
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
+(defshortcut (#\.) (center))
 
 (defun send-prefix ()
   (let ((focus (input-focus *display*)))
