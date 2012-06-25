@@ -1,17 +1,17 @@
-#!/usr/local/bin/sbcl --script
 ;;; Used to be the most simple window manager on earth. It started as
 ;;; a fork of the lisp version of tinywm.
 
-(load "prog/lisp/quicklisp/setup.lisp")
+(load (merge-pathnames "prog/lisp/quicklisp/setup.lisp" (user-homedir-pathname)))
 
-;;; Load swank and make a server
-(ql:quickload :swank)
-(swank:create-server :port 4005 :dont-close t)
+;;; Load swank and make a server (not for clisp because it doesn't
+;;; return here).
+#-clisp (ql:quickload :swank)
+#-clisp (swank:create-server :port 4005 :dont-close t)
 
 ;;; Load CLX and make a package
 (ql:quickload :clx)
 (defpackage :most.simple.wm
-  (:use :common-lisp :xlib :sb-ext))
+  (:use :common-lisp :xlib))
 (in-package :most.simple.wm)
 
 (defvar *display* (open-default-display))
@@ -51,7 +51,7 @@ for mouse button."
   (let ((k (kchar l))
         (state (apply #'make-state-mask (mods l))))
     (if (characterp k)
-        (let ((c (car (last (multiple-value-list 
+        (let ((c (car (last (multiple-value-list
                              (keysym->keycodes *display* (car (character->keysyms k))))))))
           (cons state c))
         (cons state k))))
@@ -155,6 +155,10 @@ focused."
     (move *curr* (- (truncate sw 2) (truncate w 2))
           (- (truncate sh 2) (truncate h 2)) w h)))
 
+(defun run (command)
+  #+clisp (ext:run-program command :wait nil)
+  #+sbcl (sb-ext:run-program command nil :wait nil :search t))
+
 (defmacro defror (command)
   "Define a raise or run command."
   (let ((win (gensym))
@@ -165,7 +169,7 @@ focused."
                              (windows))))
          (if ,win
              (focus ,win)
-             (run-program ,cmdstr nil :wait nil :search t))))))
+             (run ,cmdstr))))))
 (defror emacs)
 (defror firefox)
 
@@ -186,13 +190,21 @@ if there were an empty string between them."
 
 (defun execp (pathname)
   "Return T if the pathname describes an executable file."
+  (declare (ignorable pathname))
+  #+sbcl
   (let ((filename (namestring pathname)))
     (and (or (pathname-name pathname)
              (pathname-type pathname))
-         (sb-unix:unix-access filename sb-unix:x_ok))))
+         (sb-unix:unix-access filename sb-unix:x_ok)))
+  #+clisp
+  (logand (posix:convert-mode (posix:file-stat-mode (posix:file-stat pathname)))
+          (posix:convert-mode '(:xusr :xgrp :xoth)))
+  #-(or sbcl clisp) t)
+
+(defun getenv (var) #+sbcl (sb-ext:posix-getenv var) #+clisp (ext:getenv var))
 
 (defparameter *apps*
-  (let ((paths (split-string (posix-getenv "PATH") #\:)))
+  (let ((paths (split-string (getenv "PATH") #\:)))
     (loop for path in paths
           append (loop for file in (directory (merge-pathnames
                                                (make-pathname :name :wild :type :wild)
@@ -256,7 +268,7 @@ don't contain `sofar'."
 (defun app ()
   (grab-keyboard *root*)
   (unwind-protect
-       (recdo *apps* #'(lambda (app) (run-program app nil :wait nil :search t)))
+       (recdo *apps* #'(lambda (app) (run app)))
     (ungrab-keyboard *display*)))
 
 (defun finder ()
@@ -272,11 +284,11 @@ don't contain `sofar'."
 
 ;;; Key shortcuts
 (defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
-(defshortcut (#\c) (run-program "xterm" nil :wait nil :search t))
+(defshortcut (#\c) (run "xterm"))
 (defshortcut (#\e) (emacs))
 (defshortcut (#\w) (firefox))
-(defshortcut (:control #\l) (run-program "xlock" nil :wait nil :search t))
-(defshortcut (:mod-1 #\e) (run-program "envi" nil :wait nil :search t))
+(defshortcut (:control #\l) (run "xlock"))
+(defshortcut (:mod-1 #\e) (run "envi"))
 (defshortcut (#\n) (focus (next)))
 (defshortcut (:control #\n) (focus (next)))
 (defshortcut (#\p) (focus (next #'1-)))
@@ -286,6 +298,7 @@ don't contain `sofar'."
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
 (defshortcut (#\.) (center))
+(defshortcut (:shift #\.) (center))
 
 (defun send-prefix ()
   (let ((focus (input-focus *display*)))
