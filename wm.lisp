@@ -86,7 +86,9 @@ for mouse button."
              (and (eql (window-map-state window) :viewable)
                   (eql (window-override-redirect window) :off))))
     (sort (loop for w in (query-tree *root*)
-                when (ok-win-p w) collect w) #'< :key #'drawable-id)))
+                when (handler-case (ok-win-p w)
+                       (window-error (c) (format t "~&~A" c)))
+                  collect w) #'< :key #'drawable-id)))
 
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
