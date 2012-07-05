@@ -16,30 +16,30 @@
    - Install [[http://www.quicklisp.org/][quicklisp]];
    - Tweak line 4 of wm.lisp to point to your quicklisp directory.
 *** with SBCL
-    Append "sbcl --script [your path to]/wm.lisp" to your .xinitrc or
+    Append =sbcl --script [your path to]/wm.lisp= to your .xinitrc or
     .xsession.
 *** with CLISP
-    Append "xhost local:local" and "clisp [your path to]/wm.lisp" to
+    Append =xhost local:local= and =clisp [your path to]/wm.lisp= to
      your .xinitrc or .xsession.
 ** Shortcuts
-   Control-t is the prefix key. Every shortcut starts with it.
-   - n or C-n is next managed window;
-   - p or C-p is previous managed window;
-   - C-t is last used window;
-   - t sends a C-t to current window;
-   - c runs a xterm;
-   - e runs or raise an emacs;
-   - w runs or raise a web browser (configurable in wm.lisp);
-   - C-l locks the screen with xlock;
-   - a is the app launcher: keys hit after will look for the correct
+   =Control-t= is the prefix key. Every shortcut starts with it.
+   - =n= or =C-n= is next managed window;
+   - =p= or =C-p= is previous managed window;
+   - =C-t= is last used window;
+   - =t= sends a =C-t= to current window;
+   - =c= runs a xterm;
+   - =e= runs or raise an emacs;
+   - =w= runs or raise a web browser (configurable in wm.lisp);
+   - =C-l= locks the screen with xlock;
+   - =a= is the app launcher: keys hit after will look for the correct
      app;
-   - ' is the class finder: works like the app launcher but fetch
+   - ='= is the class finder: works like the app launcher but fetch
      the first window of the given class;
-   - f toggles the current window to fullscreen (and revert
+   - =f= toggles the current window to fullscreen (and revert
      size/position when changing focus);
-   - . centers the current window.
+   - =.= centers the current window.
 ** Mouse
-   Meta (or Alt) is the prefix for the mouse.
+   =Meta= (or =Alt=) is the prefix for the mouse.
    - left button moves the window;
    - right button resize the window;
    - C-middle button close the window.
