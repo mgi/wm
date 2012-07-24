@@ -80,19 +80,25 @@ for mouse button."
 (defun win= (a b)
   (and (typep a 'window) (typep b 'window) (window-equal a b)))
 
+(defun skip-window (c)
+  (let ((restart (find-restart 'skip-window)))
+    (format *error-output* "~&~A" c)
+    (when restart (invoke-restart restart))))
+
 (defun windows ()
   "List managable windows."
   (labels ((ok-win-p (window)
              (and (eql (window-map-state window) :viewable)
                   (eql (window-override-redirect window) :off))))
     (sort (loop for w in (query-tree *root*)
-                when (handler-case (ok-win-p w)
-                       (window-error (c) (format t "~&~A" c)))
+                when (restart-case (ok-win-p w)
+                       (skip-window () nil))
                   collect w) #'< :key #'drawable-id)))
 
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
-  (and window (find-if #'(lambda (f) (funcall f window)) *groupers*)))
+  (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
+                (skip-window () nil))))
 
 (defun focus (window)
   (unless (null window)
@@ -368,7 +374,8 @@ don't contain `sofar'."
 (defhandler :unmap-notify (window) (focus (minus window)))
 
 (defun evloop ()
-  (do () ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit))))
+  (do () ((eql (handler-bind ((window-error #'skip-window))
+                 (process-event *display* :handler *handlers* :discard-p t)) 'quit))))
 
 (defun main ()
   ;; Grab prefix and mouse buttons on root
