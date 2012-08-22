@@ -3,8 +3,8 @@
 
 (load (merge-pathnames "prog/lisp/quicklisp/setup.lisp" (user-homedir-pathname)))
 
-;;; Load swank and make a server (not for clisp because it doesn't
-;;; return here).
+;;; Load swank and make a server (not for clisp because i can't make
+;;; create-server return).
 #-clisp (ql:quickload :swank)
 #-clisp (swank:create-server :port 4005 :dont-close t)
 
@@ -116,8 +116,7 @@ for mouse button."
              (set-input-focus *display* :pointer-root :pointer-root))
             (t (set-input-focus *display* window :pointer-root)))
       (setf (window-priority window) :above
-            *curr* window)
-      (display-finish-output *display*))))
+            *curr* window))))
 
 (defun next (&optional (way #'1+))
   (let* ((grouper (grouper *curr*))
