@@ -19,7 +19,6 @@
 (defvar *windows* nil "List of managed windows.")
 (defvar *last* nil "Last focused window.")
 (defvar *curr* nil "Current focused window.")
-(defvar *dim* nil "Dimension of current window before fullscreen.")
 (defparameter *handlers* (make-list (length xlib::*event-key-vector*)
                                     :initial-element #'(lambda (&rest slots))))
 
@@ -98,9 +97,10 @@ for mouse button."
 (defun focus (window)
   (unless (null window)
     (unless (win= window *curr*)
-      (when (and *dim* (not (transient-for-p window *curr*)))
-        (apply #'move *curr* *dim*)
-        (setf *dim* nil))
+      (let ((dim (getf (window-plist *curr*) 'original-dimension)))
+        (when (and dim (not (transient-for-p window *curr*)))
+          (apply #'move *curr* dim)
+          (remf (window-plist *curr*) 'original-dimension)))
       (setf *last* *curr*))
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
@@ -133,7 +133,7 @@ for mouse button."
   "House keeping when window is unmapped. Returns the window to be
 focused."
   (when (win= *curr* window)
-    (setf *curr* nil *dim* nil))
+    (setf *curr* nil))
   (setf *windows* (remove window *windows* :test #'win=))
   (when (win= *last* window) (setf *last* nil))
   (when (null *last*) (setf *last* (next)))
@@ -143,15 +143,17 @@ focused."
 
 (defun fullscreen ()
   "Toggle fullscreen state of the current window."
-  (cond (*dim*
-         (apply #'move *curr* *dim*)
-         (setf *dim* nil))
-        (t (let* ((screen (display-default-screen *display*))
-                  (sw (screen-width screen))
-                  (sh (screen-height screen)))
-             (setf *dim* (list (drawable-x *curr*) (drawable-y *curr*)
-                               (drawable-width *curr*) (drawable-height *curr*)))
-             (move *curr* 0 0 sw sh)))))
+  (let ((dim (getf (window-plist *curr*) 'original-dimension)))
+    (cond (dim
+           (apply #'move *curr* dim)
+           (remf (window-plist *curr*) 'original-dimension))
+          (t (let* ((screen (display-default-screen *display*))
+                    (sw (screen-width screen))
+                    (sh (screen-height screen)))
+               (setf (getf (window-plist *curr*) 'original-dimension)
+                     (list (drawable-x *curr*) (drawable-y *curr*)
+                           (drawable-width *curr*) (drawable-height *curr*)))
+               (move *curr* 0 0 sw sh))))))
 
 (defun center ()
   "Center the current window."
@@ -336,7 +338,9 @@ don't contain `sofar'."
            (setf waiting-shortcut t)))))
 
 (defhandler :button-press (code state child)
-  (when (and child (eql (window-override-redirect child) :off) (null *dim*))
+  (when (and child (eql (window-override-redirect child) :off)
+             (null (let ((w (find child *windows* :test #'win=)))
+                     (when w (getf (window-plist w) 'original-dimension)))))
     (cond ((sc= *close* state code)
            (send-message child :WM_PROTOCOLS (intern-atom *display* :WM_DELETE_WINDOW)))
           (t
