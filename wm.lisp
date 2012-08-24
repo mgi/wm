@@ -16,6 +16,7 @@
 
 (defvar *display* (open-default-display))
 (defvar *root* (screen-root (display-default-screen *display*)))
+(defvar *windows* nil "List of managed windows.")
 (defvar *last* nil "Last focused window.")
 (defvar *curr* nil "Current focused window.")
 (defvar *dim* nil "Dimension of current window before fullscreen.")
@@ -85,31 +86,25 @@ for mouse button."
     (format *error-output* "~&~A" c)
     (when restart (invoke-restart restart))))
 
-(defun windows ()
-  "List managable windows."
-  (labels ((ok-win-p (window)
-             (and (eql (window-map-state window) :viewable)
-                  (eql (window-override-redirect window) :off))))
-    (sort (loop for w in (query-tree *root*)
-                when (restart-case (ok-win-p w)
-                       (skip-window () nil))
-                  collect w) #'< :key #'drawable-id)))
-
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
   (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
                 (skip-window () nil))))
 
+(defun transient-for-p (transient parent)
+  (let ((pid (window-id parent)))
+    (loop for id in (get-property transient :WM_TRANSIENT_FOR) thereis (= id pid))))
+
 (defun focus (window)
   (unless (null window)
     (unless (win= window *curr*)
-      (when *dim*
+      (when (and *dim* (not (transient-for-p window *curr*)))
         (apply #'move *curr* *dim*)
         (setf *dim* nil))
       (setf *last* *curr*))
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
-                    (loop for w in (windows)
+                    (loop for w in *windows*
                           when (funcall grouper w) collect w))))
       (cond (group
              (dolist (w group) (setf (window-priority w) :above))
@@ -122,18 +117,24 @@ for mouse button."
   (let* ((grouper (grouper *curr*))
          (windows (if (functionp grouper)
                       (remove-if #'(lambda (w) (and (funcall grouper w)
-                                                    (not (win= w *curr*)))) (windows))
-                      (windows)))
+                                                    (not (win= w *curr*)))) *windows*)
+                      *windows*))
          (n (length windows))
          (nw (or (position *curr* windows :test #'win=) 0)))
     (unless (zerop n)
       (nth (mod (funcall way nw) n) windows))))
+
+(defun plus (window)
+  "Add window to the list of managed windows."
+  (pushnew window *windows* :test #'win=)
+  window)
 
 (defun minus (window)
   "House keeping when window is unmapped. Returns the window to be
 focused."
   (when (win= *curr* window)
     (setf *curr* nil *dim* nil))
+  (setf *windows* (remove window *windows* :test #'win=))
   (when (win= *last* window) (setf *last* nil))
   (when (null *last*) (setf *last* (next)))
   (when (null *curr*)
@@ -173,7 +174,7 @@ focused."
     `(defun ,command ()
        (let* ((,cmdstr (string-downcase (string ',command)))
               (,win (find-if #'(lambda (w) (string-equal ,cmdstr (xclass w)))
-                             (windows))))
+                             *windows*)))
          (if ,win
              (focus ,win)
              (run ,cmdstr))))))
@@ -280,7 +281,7 @@ don't contain `sofar'."
 
 (defun finder ()
   (grab-keyboard *root*)
-  (unwind-protect (recdo (windows) #'focus :key #'xclass :matcher #'in-matcher)
+  (unwind-protect (recdo *windows* #'focus :key #'xclass :matcher #'in-matcher)
     (ungrab-keyboard *display*)))
 
 ;;; Mouse shorcuts
@@ -368,7 +369,7 @@ don't contain `sofar'."
 
 (defhandler :map-notify (window override-redirect-p)
   (unless override-redirect-p
-    (focus window)))
+    (focus (plus window))))
 
 (defhandler :unmap-notify (window) (focus (minus window)))
 
@@ -383,10 +384,16 @@ don't contain `sofar'."
   (grab-button *root* (code *resize*) '(:button-press) :modifiers (state *resize*))
   (grab-button *root* (code *close*) '(:button-press) :modifiers (state *close*))
 
-  (intern-atom *display* :_motif_wm_hints)
+  ;; Populate list of windows
+  (dolist (w (query-tree *root*))
+    (when (and (eql (window-map-state w) :viewable)
+               (eql (window-override-redirect w) :off))
+      (plus w)))
+
+  (intern-atom *display* :_MOTIF_WM_HINTS)
   (setf (window-event-mask *root*) '(:substructure-notify))
 
-  (setf *last* (setf *curr* (first (windows))))
+  (setf *last* (setf *curr* (first *windows*)))
 
   (unwind-protect (evloop)
     (dolist (b (list *move* *resize* *close*))
