@@ -96,7 +96,7 @@ for mouse button."
 
 (defun focus (window)
   (unless (null window)
-    (unless (win= window *curr*)
+    (unless (or (win= window *curr*) (null *curr*))
       (let ((dim (getf (window-plist *curr*) 'original-dimension)))
         (when (and dim (not (transient-for-p window *curr*)))
           (apply #'move *curr* dim)
