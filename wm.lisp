@@ -132,14 +132,11 @@ for mouse button."
 (defun minus (window)
   "House keeping when window is unmapped. Returns the window to be
 focused."
-  (when (win= *curr* window)
-    (setf *curr* nil))
   (setf *windows* (remove window *windows* :test #'win=))
-  (when (win= *last* window) (setf *last* nil))
-  (when (null *last*) (setf *last* (next)))
-  (when (null *curr*)
-    (setf *curr* *last*)
-    *curr*))
+  (when (win= *curr* window) (setf *curr* *last*))
+  (when (win= *last* window) (setf *last* (next)))
+  (when (win= *curr* *last*) (setf *last* (next)))
+  *curr*)
 
 (defun fullscreen ()
   "Toggle fullscreen state of the current window."
