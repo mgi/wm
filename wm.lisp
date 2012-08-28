@@ -19,6 +19,7 @@
 (defvar *windows* nil "List of managed windows.")
 (defvar *last* nil "Last focused window.")
 (defvar *curr* nil "Current focused window.")
+(defvar *mosaic-p* nil)
 (defparameter *handlers* (make-list (length xlib::*event-key-vector*)
                                     :initial-element #'(lambda (&rest slots))))
 
@@ -77,6 +78,20 @@ for mouse button."
     (setf (drawable-x window) x (drawable-y window) y
           (drawable-width window) w (drawable-height window) h)))
 
+(defun memove (window &optional x y w h)
+  "Memory Move a window (i.e. toggle between current position and the
+given one). Without a given new position reset position or does
+nothing."
+  (let ((dim (getf (window-plist window) 'original-dimension)))
+    (cond (dim
+           (apply #'move window dim)
+           (remf (window-plist window) 'original-dimension))
+          (t (when (and x y w h)
+               (setf (getf (window-plist window) 'original-dimension)
+                     (list (drawable-x window) (drawable-y window)
+                           (drawable-width window) (drawable-height window)))
+               (move window x y w h))))))
+
 (defun win= (a b)
   (and (typep a 'window) (typep b 'window) (window-equal a b)))
 
@@ -97,10 +112,8 @@ for mouse button."
 (defun focus (window)
   (unless (null window)
     (unless (or (win= window *curr*) (null *curr*))
-      (let ((dim (getf (window-plist *curr*) 'original-dimension)))
-        (when (and dim (not (transient-for-p window *curr*)))
-          (apply #'move *curr* dim)
-          (remf (window-plist *curr*) 'original-dimension)))
+      (unless (or *mosaic-p* (transient-for-p window *curr*))
+        (memove *curr*))
       (setf *last* *curr*))
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
@@ -140,28 +153,39 @@ focused."
     *curr*))
 
 (defun fullscreen ()
-  "Toggle fullscreen state of the current window."
-  (let ((dim (getf (window-plist *curr*) 'original-dimension)))
-    (cond (dim
-           (apply #'move *curr* dim)
-           (remf (window-plist *curr*) 'original-dimension))
-          (t (let* ((screen (display-default-screen *display*))
-                    (sw (screen-width screen))
-                    (sh (screen-height screen)))
-               (setf (getf (window-plist *curr*) 'original-dimension)
-                     (list (drawable-x *curr*) (drawable-y *curr*)
-                           (drawable-width *curr*) (drawable-height *curr*)))
-               (move *curr* 0 0 sw sh))))))
+  "Toggle fullscreen the current window."
+  (unless *mosaic-p*
+    (let* ((screen (display-default-screen *display*))
+           (sw (screen-width screen))
+           (sh (screen-height screen)))
+      (memove *curr* 0 0 sw sh))))
 
 (defun center ()
-  "Center the current window."
+  "Toggle center the current window."
+  (unless *mosaic-p*
+    (let* ((screen (display-default-screen *display*))
+           (sw (screen-width screen))
+           (sh (screen-height screen))
+           (w (drawable-width *curr*))
+           (h (drawable-height *curr*)))
+      (memove *curr* (- (truncate sw 2) (truncate w 2))
+              (- (truncate sh 2) (truncate h 2)) w h))))
+
+(defun mosaic ()
+  "Toggle mosaic of windows."
   (let* ((screen (display-default-screen *display*))
-         (sw (screen-width screen))
-         (sh (screen-height screen))
-         (w (drawable-width *curr*))
-         (h (drawable-height *curr*)))
-    (move *curr* (- (truncate sw 2) (truncate w 2))
-          (- (truncate sh 2) (truncate h 2)) w h)))
+         (w (screen-width screen))
+         (h (screen-height screen))
+         (n (length *windows*))
+         (k (ceiling (sqrt n)))
+         (dw (truncate w k))
+         (dh (truncate h k)))
+    (setf *mosaic-p* (not *mosaic-p*))
+    (loop for i below n
+          for linep = (zerop (mod i k))
+          for x = 0 then (if linep 0 (+ x dw))
+          for y = 0 then (if linep (+ y dh) y)
+          do (memove (nth i *windows*) x y dw dh))))
 
 (defun run (command)
   #+clisp (ext:run-program command :wait nil)
@@ -307,6 +331,7 @@ don't contain `sofar'."
 (defshortcut (#\f) (fullscreen))
 (defshortcut (#\.) (center))
 (defshortcut (:shift #\.) (center))
+(defshortcut (#\m) (mosaic))
 
 (defun send-prefix ()
   (let ((focus (input-focus *display*)))
