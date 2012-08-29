@@ -180,12 +180,14 @@ focused."
          (k (ceiling (sqrt n)))
          (dw (truncate w k))
          (dh (truncate h k)))
-    (setf *mosaic-p* (not *mosaic-p*))
     (loop for i below n
           for linep = (zerop (mod i k))
           for x = 0 then (if linep 0 (+ x dw))
           for y = 0 then (if linep (+ y dh) y)
-          do (memove (nth i *windows*) x y dw dh))))
+          for win = (nth i *windows*)
+          do (unless *mosaic-p* (memove win))
+             (memove win x y dw dh)))
+  (setf *mosaic-p* (not *mosaic-p*)))
 
 (defun run (command)
   #+clisp (ext:run-program command :wait nil)
