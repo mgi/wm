@@ -97,7 +97,7 @@ nothing."
 
 (defun skip-window (c)
   (let ((restart (find-restart 'skip-window)))
-    (format *error-output* "~&~A" c)
+    (format t "~&Skipping window for ~a~%" c)
     (when restart (invoke-restart restart))))
 
 (defun grouper (window)
@@ -118,7 +118,9 @@ nothing."
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
                     (loop for w in *windows*
-                          when (funcall grouper w) collect w))))
+                          when (restart-case (funcall grouper w) 
+                                 (skip-window () nil))
+                            collect w))))
       (cond (group
              (dolist (w group) (setf (window-priority w) :above))
              (set-input-focus *display* :pointer-root :pointer-root))
