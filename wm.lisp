@@ -208,7 +208,7 @@ focused."
              (focus ,win)
              (run ,cmdstr))))))
 (defror emacs)
-(defror firefox)
+(defror xombrero)
 
 (defun send-message (window type &rest data)
   (send-event window :client-message nil :window window
@@ -323,7 +323,7 @@ don't contain `sofar'."
 (defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
 (defshortcut (#\c) (run "xterm"))
 (defshortcut (#\e) (emacs))
-(defshortcut (#\w) (firefox))
+(defshortcut (#\w) (xombrero))
 (defshortcut (:control #\l) (run "xlock"))
 (defshortcut (:mod-1 #\e) (run "envi"))
 (defshortcut (#\n) (focus (next)))
