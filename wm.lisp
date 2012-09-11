@@ -107,7 +107,8 @@ nothing."
 
 (defun transient-for-p (transient parent)
   (let ((pid (window-id parent)))
-    (loop for id in (get-property transient :WM_TRANSIENT_FOR) thereis (= id pid))))
+    (loop for id in (restart-case (get-property transient :WM_TRANSIENT_FOR)
+                      (skip-window () nil)) thereis (= id pid))))
 
 (defun focus (window)
   (unless (null window)
