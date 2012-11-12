@@ -19,7 +19,6 @@
 (defvar *windows* nil "List of managed windows.")
 (defvar *last* nil "Last focused window.")
 (defvar *curr* nil "Current focused window.")
-(defvar *mosaic-p* nil)
 (defparameter *handlers* (make-list (length xlib::*event-key-vector*)
                                     :initial-element #'(lambda (&rest slots))))
 
@@ -113,13 +112,13 @@ nothing."
 (defun focus (window)
   (unless (null window)
     (unless (or (win= window *curr*) (null *curr*))
-      (unless (or *mosaic-p* (transient-for-p window *curr*))
+      (unless (transient-for-p window *curr*)
         (memove *curr*))
       (setf *last* *curr*))
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
                     (loop for w in *windows*
-                          when (restart-case (funcall grouper w) 
+                          when (restart-case (funcall grouper w)
                                  (skip-window () nil))
                             collect w))))
       (cond (group
@@ -157,41 +156,20 @@ focused."
 
 (defun fullscreen ()
   "Toggle fullscreen the current window."
-  (unless *mosaic-p*
-    (let* ((screen (display-default-screen *display*))
-           (sw (screen-width screen))
-           (sh (screen-height screen)))
-      (memove *curr* 0 0 sw sh))))
+  (let* ((screen (display-default-screen *display*))
+         (sw (screen-width screen))
+         (sh (screen-height screen)))
+    (memove *curr* 0 0 sw sh)))
 
 (defun center ()
   "Toggle center the current window."
-  (unless *mosaic-p*
-    (let* ((screen (display-default-screen *display*))
-           (sw (screen-width screen))
-           (sh (screen-height screen))
-           (w (drawable-width *curr*))
-           (h (drawable-height *curr*)))
-      (memove *curr* (- (truncate sw 2) (truncate w 2))
-              (- (truncate sh 2) (truncate h 2)) w h))))
-
-(defun mosaic ()
-  "Toggle mosaic of windows."
   (let* ((screen (display-default-screen *display*))
-         (w (screen-width screen))
-         (h (screen-height screen))
-         (n (length *windows*))
-         (k (ceiling (sqrt n)))
-         (dw (truncate w k))
-         (dh (truncate h k))
-         (space 2))
-    (loop for i below n
-          for linep = (zerop (mod i k))
-          for x = 0 then (if linep 0 (+ x dw space))
-          for y = 0 then (if linep (+ y dh space) y)
-          for win = (nth i *windows*)
-          do (unless *mosaic-p* (memove win))
-             (memove win x y (- dw space) (- dh space))))
-  (setf *mosaic-p* (not *mosaic-p*)))
+         (sw (screen-width screen))
+         (sh (screen-height screen))
+         (w (drawable-width *curr*))
+         (h (drawable-height *curr*)))
+    (memove *curr* (- (truncate sw 2) (truncate w 2))
+            (- (truncate sh 2) (truncate h 2)) w h)))
 
 (defun run (command)
   #+clisp (ext:run-program command :wait nil)
@@ -337,7 +315,6 @@ don't contain `sofar'."
 (defshortcut (#\f) (fullscreen))
 (defshortcut (#\.) (center))
 (defshortcut (:shift #\.) (center))
-(defshortcut (#\m) (mosaic))
 
 (defun send-prefix ()
   (let ((focus (input-focus *display*)))
