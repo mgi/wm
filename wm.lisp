@@ -111,22 +111,25 @@ nothing."
 
 (defun focus (window)
   (unless (null window)
-    (unless (or (win= window *curr*) (null *curr*))
-      (unless (transient-for-p window *curr*)
-        (memove *curr*))
-      (setf *last* *curr*))
+    (unless (transient-for-p window *curr*)
+      (memove *curr*))
     (let* ((grouper (grouper window))
-           (group (when (functionp grouper)
-                    (loop for w in *windows*
-                          when (restart-case (funcall grouper w)
-                                 (skip-window () nil))
-                            collect w))))
+           (group (sort (when (functionp grouper)
+                          (loop for w in *windows*
+                                when (restart-case (funcall grouper w)
+                                       (skip-window () nil))
+                                  collect w)) #'< :key #'window-id)))
       (cond (group
+             (unless (member *curr* group :test #'win=)
+               (setf *last* *curr*
+                     *curr* (first group)))
              (dolist (w group) (setf (window-priority w) :above))
              (set-input-focus *display* :pointer-root :pointer-root))
-            (t (set-input-focus *display* window :pointer-root)))
-      (setf (window-priority window) :above
-            *curr* window))))
+            (t
+             (setf *last* *curr* *curr* window)
+             (set-input-focus *display* window :pointer-root)))
+      (setf (window-priority window) :above)
+      (display-finish-output *display*))))
 
 (defun next (&optional (way #'1+))
   (let* ((grouper (grouper *curr*))
