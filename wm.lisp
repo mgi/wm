@@ -126,10 +126,11 @@ nothing."
              (dolist (w group) (setf (window-priority w) :above))
              (set-input-focus *display* :pointer-root :pointer-root))
             (t
-             (setf *last* *curr* *curr* window)
+             (unless (win= *curr* window)
+               (setf *last* *curr*
+                     *curr* window))
              (set-input-focus *display* window :pointer-root)))
-      (setf (window-priority window) :above)
-      (display-finish-output *display*))))
+      (setf (window-priority window) :above))))
 
 (defun next (&optional (way #'1+))
   (let* ((grouper (grouper *curr*))
