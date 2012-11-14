@@ -15,12 +15,31 @@
 (in-package :most.simple.wm)
 
 (defvar *display* (open-default-display))
-(defvar *root* (screen-root (display-default-screen *display*)))
+(defvar *screen* (display-default-screen *display*))
+(defvar *root* (screen-root *screen*))
 (defvar *windows* nil "List of managed windows.")
 (defvar *last* nil "Last focused window.")
 (defvar *curr* nil "Current focused window.")
 (defparameter *handlers* (make-list (length xlib::*event-key-vector*)
                                     :initial-element #'(lambda (&rest slots))))
+
+(defun argc ()
+  "Return the command line argument count."
+  #+sbcl (1- (length sb-ext:*posix-argv*))
+  #+clisp (length ext:*args*))
+
+(defun args (n)
+  "Return the n-th command line argument. 0 is the first argument."
+  (let ((args #+sbcl (rest sb-ext:*posix-argv*)
+              #+clisp ext:*args*))
+    (read-from-string (elt args n))))
+
+;;; Set screen geometry if provided on command line
+(cond ((= (argc) 1)
+       (setf (screen-height *screen*) (args 0)))
+      ((= (argc) 2)
+       (setf (screen-height *screen*) (args 0)
+             (screen-width *screen*) (args 1))))
 
 (defmacro defhandler (event keys &body body)
   (let ((fn-name (gensym (symbol-name event)))
@@ -160,18 +179,16 @@ focused."
 
 (defun fullscreen ()
   "Toggle fullscreen the current window."
-  (let* ((screen (display-default-screen *display*))
-         (sw (screen-width screen))
-         (sh (screen-height screen)))
+  (let ((sw (screen-width *screen*))
+        (sh (screen-height *screen*)))
     (memove *curr* 0 0 sw sh)))
 
 (defun center ()
   "Toggle center the current window."
-  (let* ((screen (display-default-screen *display*))
-         (sw (screen-width screen))
-         (sh (screen-height screen))
-         (w (drawable-width *curr*))
-         (h (drawable-height *curr*)))
+  (let ((sw (screen-width *screen*))
+        (sh (screen-height *screen*))
+        (w (drawable-width *curr*))
+        (h (drawable-height *curr*)))
     (memove *curr* (- (truncate sw 2) (truncate w 2))
             (- (truncate sh 2) (truncate h 2)) w h)))
 

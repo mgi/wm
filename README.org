@@ -16,11 +16,14 @@
    - Install [[http://www.quicklisp.org/][quicklisp]];
    - Tweak line 4 of wm.lisp to point to your quicklisp directory.
 *** with SBCL
-    Append =sbcl --script [your path to]/wm.lisp= to your .xinitrc or
-    .xsession.
+    Append =sbcl --script <your path to>/wm.lisp [height [width]]= to
+    your .xinitrc or .xsession.
 *** with CLISP
-    Append =xhost local:local= and =clisp [your path to]/wm.lisp= to
-     your .xinitrc or .xsession.
+    Append =xhost local:local= and =clisp <your path to>/wm.lisp
+     [height [width]]= to your .xinitrc or .xsession.
+
+  Note: The optional height and width are used to determine the center
+  and the fullscreen region
 ** Shortcuts
    =Control-t= is the prefix key. Every shortcut starts with it.
    - =n= or =C-n= is next managed window;
@@ -46,4 +49,4 @@
 ** Emacs
    With SBCL, one of the first thing that wm.lisp does is to create a
    swank server on port 4005. You can then connect Emacs/SLIME to it
-   (M-x slime-connect) and hack the window manager live.
+   (=M-x slime-connect=) and hack the window manager live.
