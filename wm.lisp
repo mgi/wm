@@ -130,14 +130,15 @@ nothing."
 
 (defun focus (window)
   (unless (null window)
-    (unless (transient-for-p window *curr*)
+    (unless (or (null *curr*)
+                (transient-for-p window *curr*))
       (memove *curr*))
     (let* ((grouper (grouper window))
-           (group (sort (when (functionp grouper)
-                          (loop for w in *windows*
+           (group (when (functionp grouper)
+                    (sort (loop for w in *windows*
                                 when (restart-case (funcall grouper w)
                                        (skip-window () nil))
-                                  collect w)) #'< :key #'window-id)))
+                                  collect w) #'< :key #'window-id))))
       (cond (group
              (unless (member *curr* group :test #'win=)
                (setf *last* *curr*
