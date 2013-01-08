@@ -193,9 +193,20 @@ focused."
     (memove *curr* (- (truncate sw 2) (truncate w 2))
             (- (truncate sh 2) (truncate h 2)) w h)))
 
+(defun split-string (string &optional (character #\Space))
+  "Returns a list of substrings of string
+divided by ONE space each.
+Note: Two consecutive spaces will be seen as
+if there were an empty string between them."
+  (loop for i = 0 then (1+ j)
+        as j = (position character string :start i)
+        collect (subseq string i j)
+        while j))
+
 (defun run (command)
-  #+clisp (ext:run-program command :wait nil)
-  #+sbcl (sb-ext:run-program command nil :wait nil :search t))
+  (let ((com (split-string command)))
+    #+clisp (ext:run-program (first com) :arguments (rest com) :wait nil)
+    #+sbcl (sb-ext:run-program (first com) (rest com) :wait nil :search t)))
 
 (defmacro defror (command)
   "Define a raise or run command."
@@ -216,16 +227,6 @@ focused."
                      :type type :format 32 :data data))
 
 ;;; Apps in path
-(defun split-string (string &optional (character #\Space))
-  "Returns a list of substrings of string
-divided by ONE space each.
-Note: Two consecutive spaces will be seen as
-if there were an empty string between them."
-  (loop for i = 0 then (1+ j)
-        as j = (position character string :start i)
-        collect (subseq string i j)
-        while j))
-
 (defun execp (pathname)
   "Return T if the pathname describes an executable file."
   (declare (ignorable pathname))
@@ -256,12 +257,12 @@ if there were an empty string between them."
   "Return non-nil if keycode is a modifier"
   (find keycode *mods-code* :test #'eql))
 
-;;; App launcher
+;;; App launcher, class finder, etc.
 (defparameter *abort* (compile-shortcut :control #\g))
 (defparameter *this* (compile-shortcut #\Return)
-  "Validate THIS app even if it is a prefix of more than one.")
+  "Validate THIS value even if it is ambiguous on more than one.")
 
-(defun single (list) (and (consp list) (null (cdr list))))
+(defun single-p (list) (and (consp list) (null (cdr list))))
 
 (defun one-char ()
   "Get one char from the user. The keyboard should be grabbed before call."
@@ -285,33 +286,43 @@ don't have the same character at the same place as `sofar'."
 don't contain `sofar'."
   #'(lambda (str) (search sofar str :test #'char-equal)))
 
-(defun recdo-1 (sofar list fn matcher key)
+(defun t-matcher (sofar) "A matcher that is always happy." #'(lambda (str) t))
+
+(defun recdo-1 (sofar list fn matcher key this-or-that)
   (cond ((null list))
-        ((single list)
+        ((single-p list)
          (funcall fn (car list)))
         (t (let ((char (one-char)))
              (etypecase char
                (character
                 (vector-push-extend char sofar)
                 (recdo-1 sofar (remove-if-not (funcall matcher sofar) list :key key)
-                         fn matcher key))
+                         fn matcher key this-or-that))
                (symbol
                 (cond ((eql char 'abort))
-                      ((eql char 'this) (funcall fn (car list))))))))))
+                      ((eql char 'this)
+                       (funcall fn (if this-or-that sofar (car list)))))))))))
 
-(defun recdo (list fn &key (matcher #'pre-matcher) (key #'identity))
+(defun recdo (list fn &key (matcher #'pre-matcher) (key #'identity) this-or-that)
   (let ((sofar (make-array 0 :element-type 'character :fill-pointer t :adjustable t)))
-    (recdo-1 sofar list fn matcher key)))
+    (recdo-1 sofar list fn matcher key this-or-that)))
 
 (defun app ()
   (grab-keyboard *root*)
-  (unwind-protect
-       (recdo *apps* #'(lambda (app) (run app)))
+  (unwind-protect (recdo *apps* #'(lambda (app) (run app)))
     (ungrab-keyboard *display*)))
 
 (defun finder ()
   (grab-keyboard *root*)
   (unwind-protect (recdo *windows* #'focus :key #'xclass :matcher #'in-matcher)
+    (ungrab-keyboard *display*)))
+
+(defun ssh ()
+  (grab-keyboard *root*)
+  (unwind-protect (recdo (list 1 2)     ; not single-p nor null
+                         #'(lambda (host) (run (format nil "xterm -e ssh ~a" host)))
+                         :matcher #'t-matcher
+                         :this-or-that t)
     (ungrab-keyboard *display*)))
 
 ;;; Mouse shorcuts
@@ -333,19 +344,18 @@ don't contain `sofar'."
 (defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (:control #\t) (focus *last*))
 (defshortcut (#\a) (app))
+(defshortcut (#\s) (ssh))
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
 (defshortcut (#\.) (center))
 (defshortcut (:shift #\.) (center))
 
-(defun send-prefix ()
-  (let ((focus (input-focus *display*)))
-    (when (win= focus *curr*)
-      (send-event focus :key-press (make-event-mask :key-press)
-                        :window focus
-                        :code (code *prefix*)
-                        :state (state *prefix*)))))
-(defshortcut (#\t) (send-prefix))
+(defun send-prefix (window)
+  (send-event window :key-press (make-event-mask :key-press)
+                     :window window
+                     :code (code *prefix*)
+                     :state (state *prefix*)))
+(defshortcut (#\t) (send-prefix *curr*))
 
 (defvar last-button nil)
 (defvar last-x nil)
