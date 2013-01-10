@@ -178,6 +178,9 @@ focused."
     (when (win= *curr* *last*) (setf *last* (next)))
     *curr*))
 
+(defun managed-p (window)
+  (find window *windows* :test #'win=))
+
 (defun fullscreen ()
   "Toggle fullscreen the current window."
   (let ((sw (screen-width *screen*))
@@ -413,7 +416,9 @@ don't contain `sofar'."
   (unless override-redirect-p
     (focus (plus window))))
 
-(defhandler :unmap-notify (window) (focus (minus window)))
+(defhandler :unmap-notify (window)
+  (when (managed-p window)
+    (focus (minus window))))
 
 (defun evloop ()
   (do () ((eql (handler-bind ((window-error #'skip-window))
