@@ -20,6 +20,7 @@
 (defvar *windows* nil "List of managed windows.")
 (defvar *last* nil "Last focused window.")
 (defvar *curr* nil "Current focused window.")
+(defvar *rc* (merge-pathnames ".wm.lisp" (user-homedir-pathname)) "User config file.")
 (defparameter *handlers* (make-list (length xlib::*event-key-vector*)
                                     :initial-element #'(lambda (&rest slots))))
 
@@ -52,13 +53,7 @@
 (defun xclass (window) (multiple-value-bind (name class) (get-wm-class window) class))
 
 (defparameter *groupers* (list
-                          #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal))
-                          #'(lambda (w) (string= (xclass w) "Idl"))
-                          #'(lambda (w)
-                              (let ((class (xclass w)))
-                                (or (string= class "Startup")
-                                    (string= class "DX")
-                                    (string= class "GAR")))))
+                          #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal)))
   "List of predicates against which windows are grouped")
 
 (defun mods (l) (butlast l))
@@ -328,19 +323,36 @@ don't contain `sofar'."
                          :this-or-that t)
     (ungrab-keyboard *display*)))
 
-;;; Mouse shorcuts
+;;; Default keyboard prefix and mouse shorcuts
+(defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
 (defparameter *move* (compile-shortcut :mod-1 1) "Mouse button to move a window")
 (defparameter *resize* (compile-shortcut :mod-1 3) "Mouse button to resize a window")
 (defparameter *close* (compile-shortcut :control :mod-1 2)
   "Mouse button to close a window")
 
-;;; Key shortcuts
-(defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
+(defun grab-all ()
+  "Grab prefix and mouse buttons on root."
+  (grab-key *root* (code *prefix*) :modifiers (state *prefix*))
+  (grab-button *root* (code *move*) '(:button-press) :modifiers (state *move*))
+  (grab-button *root* (code *resize*) '(:button-press) :modifiers (state *resize*))
+  (grab-button *root* (code *close*) '(:button-press) :modifiers (state *close*)))
+
+(defun ungrab-all ()
+  (dolist (b (list *move* *resize* *close*))
+    (ungrab-button *root* (code b) :modifiers (state b)))
+  (ungrab-key *root* (code *prefix*) :modifiers (state *prefix*)))
+
+(defun load-rc ()
+  (ungrab-all)
+  (ignore-errors (load *rc*))
+  (grab-all))
+
+;;; Keyboard shortcuts
+(defshortcut (:shift #\r) (load-rc))
 (defshortcut (#\c) (run "xterm"))
 (defshortcut (#\e) (emacs))
 (defshortcut (#\w) (xombrero))
 (defshortcut (:control #\l) (run "xlock"))
-(defshortcut (:mod-1 #\e) (run "envi"))
 (defshortcut (#\n) (focus (next)))
 (defshortcut (:control #\n) (focus (next)))
 (defshortcut (#\p) (focus (next #'1-)))
@@ -425,11 +437,7 @@ don't contain `sofar'."
                  (process-event *display* :handler *handlers* :discard-p t)) 'quit))))
 
 (defun main ()
-  ;; Grab prefix and mouse buttons on root
-  (grab-key *root* (code *prefix*) :modifiers (state *prefix*))
-  (grab-button *root* (code *move*) '(:button-press) :modifiers (state *move*))
-  (grab-button *root* (code *resize*) '(:button-press) :modifiers (state *resize*))
-  (grab-button *root* (code *close*) '(:button-press) :modifiers (state *close*))
+  (load-rc)
 
   ;; Populate list of windows
   (dolist (w (query-tree *root*))
@@ -443,9 +451,7 @@ don't contain `sofar'."
   (setf *last* (setf *curr* (first *windows*)))
 
   (unwind-protect (evloop)
-    (dolist (b (list *move* *resize* *close*))
-      (ungrab-button *root* (code b) :modifiers (state b)))
-    (ungrab-key *root* (code *prefix*) :modifiers (state *prefix*))
+    (ungrab-all)
     (close-display *display*)))
 
 (main)
