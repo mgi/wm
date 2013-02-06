@@ -82,17 +82,23 @@ shortcut."
   (list (cons (compile-shortcut :shift #\q) 'quit))
   "Shortcuts alist initialized with the quit command.")
 
+(defun add-shortcut (sc fn)
+  "Add or replace the shortcut `sc' with the function `fn'."
+  (let ((asc (assoc sc *shortcuts* :test #'sc-equal)))
+    (if asc
+        (rplacd asc fn)
+        (push (cons sc fn) *shortcuts*))))
+
+(defun rm-shortcut (sc)
+  (setf *shortcuts* (remove (assoc sc *shortcuts* :test #'sc-equal) *shortcuts*)))
+
 (defmacro defshortcut (key &body body)
   "Define a new shortcut in *shortcuts* alist. The key in this alist
   is a shortcut structure and the associated value is a lambda without
   argument."
-  (let ((sc (gensym))
-        (asc (gensym)))
-    `(let* ((,sc (compile-shortcut ,@key))
-            (,asc (assoc ,sc *shortcuts* :test #'sc-equal)))
-       (if ,asc
-           (rplacd ,asc #'(lambda () ,@body))
-           (push (cons ,sc #'(lambda () ,@body)) *shortcuts*)))))
+  (let ((sc (gensym)))
+    `(let* ((,sc (compile-shortcut ,@key)))
+       (add-shortcut ,sc #'(lambda () ,@body)))))
 
 (defun move (window x y w h)
   "Move a window."
@@ -353,19 +359,33 @@ don't contain `sofar'."
 (defun grab-all ()
   "Grab prefix and mouse buttons on root."
   (grab-key *root* (code *prefix*) :modifiers (state *prefix*))
-  (grab-button *root* (code *move*) '(:button-press) :modifiers (state *move*))
-  (grab-button *root* (code *resize*) '(:button-press) :modifiers (state *resize*))
-  (grab-button *root* (code *close*) '(:button-press) :modifiers (state *close*)))
+  (dolist (b (list *move* *resize* *close*))
+    (grab-button *root* (code b) '(:button-press) :modifiers (state b))))
 
 (defun ungrab-all ()
   (dolist (b (list *move* *resize* *close*))
     (ungrab-button *root* (code b) :modifiers (state b)))
   (ungrab-key *root* (code *prefix*) :modifiers (state *prefix*)))
 
+(defun send-prefix (window)
+  (send-event window :key-press (make-event-mask :key-press)
+                     :window window
+                     :code (code *prefix*)
+                     :state (state *prefix*)))
+
+(defun redo-prefix (old-prefix)
+  (rm-shortcut old-prefix)
+  (rm-shortcut (make-shortcut :code (code old-prefix)))
+  (add-shortcut *prefix* #'(lambda () (focus *last*)))
+  (add-shortcut (make-shortcut :code (code *prefix*)) #'(lambda () (send-prefix *curr*))))
+
 (defun load-rc ()
-  (ungrab-all)
-  (ignore-errors (load *rc*))
-  (grab-all))
+  (let ((old-prefix *prefix*))
+    (ungrab-all)
+    (ignore-errors (load *rc*))
+    (grab-all)
+    (redo-prefix old-prefix)
+    (display-finish-output *display*)))
 
 ;;; Keyboard shortcuts
 (defshortcut (:shift #\r) (load-rc))
@@ -377,20 +397,12 @@ don't contain `sofar'."
 (defshortcut (:control #\n) (focus (next)))
 (defshortcut (#\p) (focus (next #'1-)))
 (defshortcut (:control #\p) (focus (next #'1-)))
-(defshortcut (:control #\t) (focus *last*))
 (defshortcut (#\a) (app))
 (defshortcut (#\s) (ssh))
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
 (defshortcut (#\.) (center))
 (defshortcut (:shift #\.) (center))
-
-(defun send-prefix (window)
-  (send-event window :key-press (make-event-mask :key-press)
-                     :window window
-                     :code (code *prefix*)
-                     :state (state *prefix*)))
-(defshortcut (#\t) (send-prefix *curr*))
 
 (defvar last-button nil)
 (defvar last-x nil)

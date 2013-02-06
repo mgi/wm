@@ -49,11 +49,13 @@
 #+END_SRC
 ** Shortcuts
    =Control-t= is the default prefix key. Every shortcut starts with
-   it.
+   it. Hitting the prefix twice takes you to the last used
+   window. Hitting the prefix plus the character used by the prefix
+   (e.g. =Control-t t=) sends the prefix chord to the current window.
+
+   Here is a list of the default keyboard shortcuts:
    - =n= or =C-n= is next managed window;
    - =p= or =C-p= is previous managed window;
-   - =C-t= is last used window;
-   - =t= sends a =C-t= to current window;
    - =c= runs a xterm;
    - =e= runs or raise an emacs;
    - =w= runs or raise a web browser (defaults to [[https://opensource.conformal.com/wiki/xombrero][xombrero]]);
@@ -65,7 +67,7 @@
      the first window of the given class;
    - =f= toggles the current window to fullscreen (and revert
      size/position when changing focus);
-   - =.= centers the current window;
+   - =.= centers the current window (and revert as fullscreen);
    - =R= reloads the configuration file;
    - =Q= quits the window manager.
 ** Mouse
