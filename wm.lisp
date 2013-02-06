@@ -21,6 +21,7 @@
 (defvar *last* nil "Last focused window.")
 (defvar *curr* nil "Current focused window.")
 (defvar *rc* (merge-pathnames ".wm.lisp" (user-homedir-pathname)) "User config file.")
+(defvar *shortcuts* nil "Shortcuts alist.")
 (defparameter *handlers* (make-list (length xlib::*event-key-vector*)
                                     :initial-element #'(lambda (&rest slots))))
 
@@ -42,9 +43,12 @@
        (setf (screen-height *screen*) (args 0)
              (screen-width *screen*) (args 1))))
 
+(defmacro with-gensyms (syms &body body)
+  `(let ,(mapcar #'(lambda (s) `(,s (gensym))) syms)
+     ,@body))
+
 (defmacro defhandler (event keys &body body)
-  (let ((fn-name (gensym (symbol-name event)))
-        (event-slots (gensym)))
+  (with-gensyms (fn-name event-slots)
     `(labels ((,fn-name (&rest ,event-slots &key ,@keys &allow-other-keys)
                 (declare (ignore ,event-slots))
                 ,@body))
@@ -78,27 +82,17 @@ shortcut."
 (defun sc= (sc state code) (and (= (code sc) code) (= (state sc) state)))
 (defun sc-equal (sc1 sc2) (equalp sc1 sc2))
 
-(defparameter *shortcuts*
-  (list (cons (compile-shortcut :shift #\q) 'quit))
-  "Shortcuts alist initialized with the quit command.")
-
-(defun add-shortcut (sc fn)
-  "Add or replace the shortcut `sc' with the function `fn'."
-  (let ((asc (assoc sc *shortcuts* :test #'sc-equal)))
-    (if asc
-        (rplacd asc fn)
-        (push (cons sc fn) *shortcuts*))))
-
-(defun rm-shortcut (sc)
-  (setf *shortcuts* (remove (assoc sc *shortcuts* :test #'sc-equal) *shortcuts*)))
-
 (defmacro defshortcut (key &body body)
   "Define a new shortcut in *shortcuts* alist. The key in this alist
   is a shortcut structure and the associated value is a lambda without
   argument."
-  (let ((sc (gensym)))
-    `(let* ((,sc (compile-shortcut ,@key)))
-       (add-shortcut ,sc #'(lambda () ,@body)))))
+  (with-gensyms (sc asc fn)
+    `(let* ((,sc (compile-shortcut ,@key))
+            (,asc (assoc ,sc *shortcuts* :test #'sc-equal)))
+       (labels ((,fn () ,@body))
+         (if ,asc
+             (rplacd ,asc #',fn)
+             (push (cons ,sc #',fn) *shortcuts*))))))
 
 (defun move (window x y w h)
   "Move a window."
@@ -189,7 +183,7 @@ focused."
     *curr*))
 
 (defun managed-p (window)
-  (find window *windows* :test #'win=))
+  (member window *windows* :test #'win=))
 
 (defun fullscreen ()
   "Toggle fullscreen the current window."
@@ -223,8 +217,7 @@ if there were an empty string between them."
 
 (defmacro defror (command)
   "Define a raise or run command."
-  (let ((win (gensym))
-        (cmdstr (gensym)))
+  (with-gensyms (win cmdstr)
     `(defun ,command ()
        (let* ((,cmdstr (string-downcase (string ',command)))
               (,win (find-if #'(lambda (w) (string-equal ,cmdstr (xclass w)))
@@ -238,6 +231,12 @@ if there were an empty string between them."
 (defun send-message (window type &rest data)
   (send-event window :client-message nil :window window
                      :type type :format 32 :data data))
+
+(defun send-prefix (window)
+  (send-event window :key-press (make-event-mask :key-press)
+                     :window window
+                     :code (code *prefix*)
+                     :state (state *prefix*)))
 
 ;;; Apps in path
 (defun execp (pathname)
@@ -280,7 +279,7 @@ if there were an empty string between them."
 (defun one-char ()
   "Get one char from the user. The keyboard should be grabbed before call."
   (event-case (*display*)
-    (:key-press (code state)
+    (:key-press (state code)
                 (cond ((is-modifier code) (one-char))
                       ((sc= *abort* state code) 'abort)
                       ((sc= *this* state code) 'this)
@@ -351,6 +350,7 @@ don't contain `sofar'."
 
 ;;; Default keyboard prefix and mouse shorcuts
 (defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
+(defparameter *quit* (compile-shortcut :shift #\q) "Shortcut to quit")
 (defparameter *move* (compile-shortcut :mod-1 1) "Mouse button to move a window")
 (defparameter *resize* (compile-shortcut :mod-1 3) "Mouse button to resize a window")
 (defparameter *close* (compile-shortcut :control :mod-1 2)
@@ -367,25 +367,11 @@ don't contain `sofar'."
     (ungrab-button *root* (code b) :modifiers (state b)))
   (ungrab-key *root* (code *prefix*) :modifiers (state *prefix*)))
 
-(defun send-prefix (window)
-  (send-event window :key-press (make-event-mask :key-press)
-                     :window window
-                     :code (code *prefix*)
-                     :state (state *prefix*)))
-
-(defun redo-prefix (old-prefix)
-  (rm-shortcut old-prefix)
-  (rm-shortcut (make-shortcut :code (code old-prefix)))
-  (add-shortcut *prefix* #'(lambda () (focus *last*)))
-  (add-shortcut (make-shortcut :code (code *prefix*)) #'(lambda () (send-prefix *curr*))))
-
 (defun load-rc ()
-  (let ((old-prefix *prefix*))
-    (ungrab-all)
-    (ignore-errors (load *rc*))
-    (grab-all)
-    (redo-prefix old-prefix)
-    (display-finish-output *display*)))
+  (ungrab-all)
+  (ignore-errors (load *rc*))
+  (grab-all)
+  (display-finish-output *display*))
 
 ;;; Keyboard shortcuts
 (defshortcut (:shift #\r) (load-rc))
@@ -413,11 +399,16 @@ don't contain `sofar'."
 (defhandler :key-press (state code)
   (unless (is-modifier code)
     (cond (waiting-shortcut
-           (let ((fn (cdr (assoc-if #'(lambda (sc) (sc= sc state code)) *shortcuts*))))
-             (when (functionp fn) (funcall fn))
-             (ungrab-keyboard *display*)
-             (setf waiting-shortcut nil)
-             fn))
+           (cond ((sc= *quit* state code) 'quit)
+                 (t
+                  (cond ((sc= *prefix* state code) (focus *last*))
+                        ((and (zerop state) (= code (code *prefix*)))
+                         (send-prefix *curr*))
+                        (t (let ((fn (cdr (assoc-if #'(lambda (sc) (sc= sc state code))
+                                                    *shortcuts*))))
+                             (when (functionp fn) (funcall fn)))))
+                  (ungrab-keyboard *display*)
+                  (setf waiting-shortcut nil))))
           ((sc= *prefix* state code)
            (grab-keyboard *root*)
            (setf waiting-shortcut t)))))

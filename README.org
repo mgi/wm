@@ -31,8 +31,9 @@
 
    Here's an example:
 #+BEGIN_SRC lisp
-;; Change the prefix key
+;; Change the prefix key and the quit shortcut
 (setf *prefix* (compile-shortcut :control #\a))
+(setf *quit* (compile-shortcut :control :shift #\q))
 
 ;; Use Firefox as web browser
 (defror firefox)
