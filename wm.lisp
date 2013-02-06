@@ -293,9 +293,7 @@ don't have the same character at the same place as `sofar'."
 don't contain `sofar'."
   #'(lambda (str) (search sofar str :test #'char-equal)))
 
-(defun t-matcher (sofar) "A matcher that is always happy." #'(lambda (str) t))
-
-(defun recdo-1 (sofar list fn matcher key this-or-that)
+(defun recdo-1 (sofar list fn matcher key)
   (cond ((null list))
         ((single-p list)
          (funcall fn (car list)))
@@ -304,15 +302,15 @@ don't contain `sofar'."
                (character
                 (vector-push-extend char sofar)
                 (recdo-1 sofar (remove-if-not (funcall matcher sofar) list :key key)
-                         fn matcher key this-or-that))
+                         fn matcher key))
                (symbol
                 (cond ((eql char 'abort))
                       ((eql char 'this)
-                       (funcall fn (if this-or-that sofar (car list)))))))))))
+                       (funcall fn (car list))))))))))
 
-(defun recdo (list fn &key (matcher #'pre-matcher) (key #'identity) this-or-that)
+(defun recdo (list fn &key (matcher #'pre-matcher) (key #'identity))
   (let ((sofar (make-array 0 :element-type 'character :fill-pointer t :adjustable t)))
-    (recdo-1 sofar list fn matcher key this-or-that)))
+    (recdo-1 sofar list fn matcher key)))
 
 (defun app ()
   (grab-keyboard *root*)
@@ -324,12 +322,25 @@ don't contain `sofar'."
   (unwind-protect (recdo *windows* #'focus :key #'xclass :matcher #'in-matcher)
     (ungrab-keyboard *display*)))
 
+(defun parse-ssh-config ()
+  (handler-case
+      (with-open-file (fd (merge-pathnames ".ssh/config" (user-homedir-pathname)))
+        (do ((line (read-line fd nil nil) (read-line fd nil nil))
+             res)
+            ((null line) res)
+          (let ((line-no-comment (string-trim " 	"
+                                              (subseq line 0 (position #\# line)))))
+            (multiple-value-bind (val pos) (read-from-string line-no-comment nil nil)
+              (when (eql val 'HOST)
+                (push (subseq line-no-comment pos) res))))))
+    (file-error () nil)))
+
+(defparameter *ssh-hosts* (parse-ssh-config))
+
 (defun ssh ()
   (grab-keyboard *root*)
-  (unwind-protect (recdo (list 1 2)     ; not single-p nor null
-                         #'(lambda (host) (run (format nil "xterm -e ssh ~a" host)))
-                         :matcher #'t-matcher
-                         :this-or-that t)
+  (unwind-protect (recdo *ssh-hosts*
+                         #'(lambda (host) (run (format nil "xterm -e ssh ~a" host))))
     (ungrab-keyboard *display*)))
 
 ;;; Default keyboard prefix and mouse shorcuts
