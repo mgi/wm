@@ -56,21 +56,25 @@
                           #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal)))
   "List of predicates against which windows are grouped")
 
-(defun mods (l) (butlast l))
-(defun kchar (l) (car (last l)))
+(defstruct (shortcut (:conc-name)) (state 0) (code 0))
+
+(defmethod print-object ((sc shortcut) stream)
+  (let ((state (make-state-keys (state sc)))
+        (code (keycode->character *display* (code sc) 0)))
+    (format stream "(~{~s ~}~s)" state code)))
+
 (defun compile-shortcut (&rest l)
-  "Compile a shortcut into a (state . code) form. For
-example: (compile-shortcut :control #\t) -> (4 . 44). Works also
-for mouse button."
-  (let ((k (kchar l))
-        (state (apply #'make-state-mask (mods l))))
+  "Compile a shortcut. Usage: (compile-shortcut :control #\t) for a
+keyboard shortcut or (compile-shortcut :mod-1 1) for a mouse
+shortcut."
+  (let ((k (car (last l)))
+        (state (apply #'make-state-mask (butlast l))))
     (if (characterp k)
-        (let ((c (car (last (multiple-value-list
-                             (keysym->keycodes *display* (car (character->keysyms k))))))))
-          (cons state c))
-        (cons state k))))
-(defun state (l) (car l))
-(defun code (l) (cdr l))
+        (let ((code (car (last (multiple-value-list
+                                (keysym->keycodes *display* (car (character->keysyms k))))))))
+          (make-shortcut :state state :code code))
+        (make-shortcut :state state :code k))))
+
 (defun sc= (sc state code) (and (= (code sc) code) (= (state sc) state)))
 
 (defparameter *shortcuts*
