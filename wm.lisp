@@ -76,6 +76,7 @@ shortcut."
         (make-shortcut :state state :code k))))
 
 (defun sc= (sc state code) (and (= (code sc) code) (= (state sc) state)))
+(defun sc-equal (sc1 sc2) (equalp sc1 sc2))
 
 (defparameter *shortcuts*
   (list (cons (compile-shortcut :shift #\q) 'quit))
@@ -83,11 +84,15 @@ shortcut."
 
 (defmacro defshortcut (key &body body)
   "Define a new shortcut in *shortcuts* alist. The key in this alist
-  is in (state . code) form and the associated value is a lambda
-  without argument."
-  (let ((sc (gensym)))
-    `(let ((,sc (compile-shortcut ,@key)))
-       (push (cons ,sc #'(lambda () ,@body)) *shortcuts*))))
+  is a shortcut structure and the associated value is a lambda without
+  argument."
+  (let ((sc (gensym))
+        (asc (gensym)))
+    `(let* ((,sc (compile-shortcut ,@key))
+            (,asc (assoc ,sc *shortcuts* :test #'sc-equal)))
+       (if ,asc
+           (rplacd ,asc #'(lambda () ,@body))
+           (push (cons ,sc #'(lambda () ,@body)) *shortcuts*)))))
 
 (defun move (window x y w h)
   "Move a window."
@@ -257,7 +262,7 @@ if there were an empty string between them."
 
 (defun is-modifier (keycode)
   "Return non-nil if keycode is a modifier"
-  (find keycode *mods-code* :test #'eql))
+  (member keycode *mods-code*))
 
 ;;; App launcher, class finder, etc.
 (defparameter *abort* (compile-shortcut :control #\g))
@@ -382,7 +387,7 @@ don't contain `sofar'."
 (defvar last-motion nil)
 (defvar waiting-shortcut nil)
 
-(defhandler :key-press (code state)
+(defhandler :key-press (state code)
   (unless (is-modifier code)
     (cond (waiting-shortcut
            (let ((fn (cdr (assoc-if #'(lambda (sc) (sc= sc state code)) *shortcuts*))))
@@ -394,7 +399,7 @@ don't contain `sofar'."
            (grab-keyboard *root*)
            (setf waiting-shortcut t)))))
 
-(defhandler :button-press (code state child)
+(defhandler :button-press (state code child)
   (when (and child (eql (window-override-redirect child) :off)
              (null (let ((w (find child *windows* :test #'win=)))
                      (when w (getf (window-plist w) 'original-dimension)))))
