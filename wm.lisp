@@ -232,12 +232,6 @@ if there were an empty string between them."
   (send-event window :client-message nil :window window
                      :type type :format 32 :data data))
 
-(defun send-prefix (window)
-  (send-event window :key-press (make-event-mask :key-press)
-                     :window window
-                     :code (code *prefix*)
-                     :state (state *prefix*)))
-
 ;;; Apps in path
 (defun execp (pathname)
   "Return T if the pathname describes an executable file."
@@ -356,6 +350,12 @@ don't contain `sofar'."
 (defparameter *close* (compile-shortcut :control :mod-1 2)
   "Mouse button to close a window")
 
+(defun send-prefix (window)
+  (send-event window :key-press (make-event-mask :key-press)
+                     :window window
+                     :code (code *prefix*)
+                     :state (state *prefix*)))
+
 (defun grab-all ()
   "Grab prefix and mouse buttons on root."
   (grab-key *root* (code *prefix*) :modifiers (state *prefix*))
@@ -456,7 +456,8 @@ don't contain `sofar'."
     (focus (minus window))))
 
 (defun evloop ()
-  (do () ((eql (handler-bind ((window-error #'skip-window))
+  (do () ((eql (handler-bind ((window-error #'skip-window)
+                              (match-error #'skip-window))
                  (process-event *display* :handler *handlers* :discard-p t)) 'quit))))
 
 (defun main ()
