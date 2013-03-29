@@ -247,8 +247,8 @@ if there were an empty string between them."
              (pathname-type pathname))
          (sb-unix:unix-access filename sb-unix:x_ok)))
   #+clisp
-  (logand (posix:convert-mode (posix:file-stat-mode (posix:file-stat pathname)))
-          (posix:convert-mode '(:xusr :xgrp :xoth)))
+  (not (zerop (logand (posix:convert-mode (posix:file-stat-mode (posix:file-stat pathname)))
+		      (posix:convert-mode '(:xusr :xgrp :xoth)))))
   #-(or sbcl clisp) t)
 
 (defun getenv (var) #+sbcl (sb-ext:posix-getenv var) #+clisp (ext:getenv var))
@@ -257,7 +257,8 @@ if there were an empty string between them."
   (let ((paths (split-string (getenv "PATH") #\:)))
     (loop for path in paths
           append (loop for file in (directory (merge-pathnames
-                                               (make-pathname :name :wild :type :wild)
+                                               #+sbcl (make-pathname :name :wild :type :wild)
+					       #+clisp (make-pathname :name :wild)
                                                (concatenate 'string path "/")))
                        when (execp file) collect (file-namestring file)))))
 
