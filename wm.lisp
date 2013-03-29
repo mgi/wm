@@ -60,26 +60,31 @@
                           #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal)))
   "List of predicates against which windows are grouped")
 
-(defstruct (shortcut (:conc-name)) (state 0) (code 0))
+(defstruct (shortcut (:conc-name)) (states nil) (code 0))
 
 (defmethod print-object ((sc shortcut) stream)
-  (let ((state (make-state-keys (state sc)))
-        (code (keycode->character *display* (code sc) 0)))
-    (format stream "(~{~s ~}~s)" state code)))
+  (let* ((state (make-state-keys (first (states sc))))
+         (code (code sc))
+         (k (if (< code 4) code (keycode->character *display* code 0))))
+    (format stream "(~{~s ~}~s)" state k)))
 
 (defun compile-shortcut (&rest l)
   "Compile a shortcut. Usage: (compile-shortcut :control #\t) for a
 keyboard shortcut or (compile-shortcut :mod-1 1) for a mouse
-shortcut."
-  (let ((k (car (last l)))
-        (state (apply #'make-state-mask (butlast l))))
+shortcut. Takes care of CapsLock and NumLock combination."
+  (let* ((k (car (last l)))
+         (mods (butlast l))
+         (states (list (apply #'make-state-mask mods)
+                       (apply #'make-state-mask (cons :lock mods))
+                       (apply #'make-state-mask (cons :mod-2 mods))
+                       (apply #'make-state-mask (append '(:lock :mod-2) mods)))))
     (if (characterp k)
         (let ((code (car (last (multiple-value-list
                                 (keysym->keycodes *display* (car (character->keysyms k))))))))
-          (make-shortcut :state state :code code))
-        (make-shortcut :state state :code k))))
+          (make-shortcut :states states :code code))
+        (make-shortcut :states states :code k))))
 
-(defun sc= (sc state code) (and (= (code sc) code) (= (state sc) state)))
+(defun sc= (sc state code) (and (= (code sc) code) (member state (states sc))))
 (defun sc-equal (sc1 sc2) (equalp sc1 sc2))
 
 (defmacro defshortcut (key &body body)
@@ -347,25 +352,38 @@ don't contain `sofar'."
 (defparameter *quit* (compile-shortcut :shift #\q) "Shortcut to quit")
 (defparameter *move* (compile-shortcut :mod-1 1) "Mouse button to move a window")
 (defparameter *resize* (compile-shortcut :mod-1 3) "Mouse button to resize a window")
-(defparameter *close* (compile-shortcut :control :mod-1 2)
-  "Mouse button to close a window")
+(defparameter *close* (compile-shortcut :control :mod-1 2) "Mouse button to close a window")
 
 (defun send-prefix (window)
   (send-event window :key-press (make-event-mask :key-press)
                      :window window
                      :code (code *prefix*)
-                     :state (state *prefix*)))
+                     :state (first (states *prefix*))))
+
+(defun grab-it (shortcut &key inverse-p)
+  "Grab a given key or button shortcut in all its
+states. Use :inverse-p key to ungrab. "
+  (let ((code (code shortcut)))
+    (if (< code 4)                      ;it's a mouse button
+	(if inverse-p
+            (dolist (s (states shortcut))
+              (ungrab-button *root* code :modifiers s))
+            (dolist (s (states shortcut))
+              (grab-button *root* code '(:button-press) :modifiers s)))
+        (let ((grab/ungrab (if inverse-p #'ungrab-key #'grab-key)))
+          (dolist (s (states shortcut))
+            (funcall grab/ungrab *root* code :modifiers s))))))
 
 (defun grab-all ()
   "Grab prefix and mouse buttons on root."
-  (grab-key *root* (code *prefix*) :modifiers (state *prefix*))
+  (grab-it *prefix*)
   (dolist (b (list *move* *resize* *close*))
-    (grab-button *root* (code b) '(:button-press) :modifiers (state b))))
+    (grab-it b)))
 
 (defun ungrab-all ()
   (dolist (b (list *move* *resize* *close*))
-    (ungrab-button *root* (code b) :modifiers (state b)))
-  (ungrab-key *root* (code *prefix*) :modifiers (state *prefix*)))
+    (grab-it b :inverse-p t))
+  (grab-it *prefix* :inverse-p t))
 
 (defun load-rc ()
   (ungrab-all)
@@ -402,8 +420,7 @@ don't contain `sofar'."
            (cond ((sc= *quit* state code) 'quit)
                  (t
                   (cond ((sc= *prefix* state code) (focus *last*))
-                        ((and (zerop state) (= code (code *prefix*)))
-                         (send-prefix *curr*))
+                        ((= code (code *prefix*)) (send-prefix *curr*))
                         (t (let ((fn (cdr (assoc-if #'(lambda (sc) (sc= sc state code))
                                                     *shortcuts*))))
                              (when (functionp fn) (funcall fn)))))
