@@ -395,7 +395,7 @@ states. Use :inverse-p key to ungrab. "
 ;;; Keyboard shortcuts
 (defshortcut (:shift #\r) (load-rc))
 (defshortcut (#\c) (run "xterm"))
-(defshortcut (#\e) (emacs))
+(defshortcut (#\e) (run (getenv "EDITOR")))
 (defshortcut (#\w) (xombrero))
 (defshortcut (:control #\l) (run "xlock"))
 (defshortcut (#\n) (focus (next)))
