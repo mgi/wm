@@ -220,18 +220,12 @@ if there were an empty string between them."
     #+clisp (ext:run-program (first com) :arguments (rest com) :wait nil)
     #+sbcl (sb-ext:run-program (first com) (rest com) :wait nil :search t)))
 
-(defmacro defror (command)
-  "Define a raise or run command."
-  (with-gensyms (win cmdstr)
-    `(defun ,command ()
-       (let* ((,cmdstr (string-downcase (string ',command)))
-              (,win (find-if #'(lambda (w) (string-equal ,cmdstr (xclass w)))
-                             *windows*)))
-         (if ,win
-             (focus ,win)
-             (run ,cmdstr))))))
-(defror emacs)
-(defror xombrero)
+(defun raise-or-run (class command)
+  "Raise a window of a given class or run the command."
+  (let ((win (find class *windows* :test #'string-equal :key #'xclass)))
+    (if win
+	(focus win)
+	(run command))))
 
 (defun send-message (window type &rest data)
   (send-event window :client-message nil :window window
@@ -395,8 +389,8 @@ states. Use :inverse-p key to ungrab. "
 ;;; Keyboard shortcuts
 (defshortcut (:shift #\r) (load-rc))
 (defshortcut (#\c) (run "xterm"))
-(defshortcut (#\e) (run (getenv "EDITOR")))
-(defshortcut (#\w) (xombrero))
+(defshortcut (#\e) (raise-or-run "Emacs" (getenv "EDITOR")))
+(defshortcut (#\w) (raise-or-run "XOmbrero" "xombrero"))
 (defshortcut (:control #\l) (run "xlock"))
 (defshortcut (#\n) (focus (next)))
 (defshortcut (:control #\n) (focus (next)))
