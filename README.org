@@ -58,8 +58,8 @@
    - =n= or =C-n= is next managed window;
    - =p= or =C-p= is previous managed window;
    - =c= runs a xterm;
-   - =e= runs or raise an emacs;
-   - =w= runs or raise a web browser (defaults to [[https://opensource.conformal.com/wiki/xombrero][xombrero]]);
+   - =e= raises an existing emacs or runs your $EDITOR;
+   - =w= raises or runs a web browser (defaults to [[https://opensource.conformal.com/wiki/xombrero][xombrero]]);
    - =s= ssh somewhere (in a xterm);
    - =C-l= locks the screen with xlock;
    - =a= is the app launcher: keys hit after will look for the correct
