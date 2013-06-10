@@ -388,7 +388,7 @@ states. Use :inverse-p key to ungrab. "
 
 ;;; Keyboard shortcuts
 (defshortcut (:shift #\r) (load-rc))
-(defshortcut (#\c) (run "xterm"))
+(defshortcut (#\c) (raise-or-run "XTerm" "xterm"))
 (defshortcut (#\e) (raise-or-run "Emacs" (getenv "EDITOR")))
 (defshortcut (#\w) (raise-or-run "XOmbrero" "xombrero"))
 (defshortcut (:control #\l) (run "xlock"))

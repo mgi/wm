@@ -57,7 +57,7 @@
    Here is a list of the default keyboard shortcuts:
    - =n= or =C-n= is next managed window;
    - =p= or =C-p= is previous managed window;
-   - =c= runs a xterm;
+   - =c= raises or runs a xterm;
    - =e= raises an existing emacs or runs your $EDITOR;
    - =w= raises or runs a web browser (defaults to [[https://opensource.conformal.com/wiki/xombrero][xombrero]]);
    - =s= ssh somewhere (in a xterm);
