@@ -468,8 +468,7 @@ states. Use :inverse-p key to ungrab. "
     (focus (minus window))))
 
 (defun evloop ()
-  (do () ((eql (handler-bind ((window-error #'skip-window)
-                              (match-error #'skip-window))
+  (do () ((eql (handler-bind (((or window-error drawable-error match-error) #'skip-window))
                  (process-event *display* :handler *handlers* :discard-p t)) 'quit))))
 
 (defun main ()
