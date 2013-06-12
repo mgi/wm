@@ -324,7 +324,7 @@ don't contain `sofar'."
 
 (defun app ()
   (grab-keyboard *root*)
-  (unwind-protect (recdo *apps* #'(lambda (app) (run app)))
+  (unwind-protect (recdo *apps* #'run)
     (ungrab-keyboard *display*)))
 
 (defun finder ()
