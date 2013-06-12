@@ -36,8 +36,7 @@
 (setf *quit* (compile-shortcut :control :shift #\q))
 
 ;; Use Firefox as web browser
-(defror firefox)
-(defshortcut (#\w) (firefox))
+(defshortcut (#\w) (raise-or-run "Firefox" "firefox"))
 
 ;; Define a new shortcut for a local application and group all the
 ;; windows of this app by X Window class.
