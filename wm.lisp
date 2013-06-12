@@ -172,9 +172,19 @@ nothing."
     (unless (zerop n)
       (nth (mod (funcall way nw) n) windows))))
 
+(defun insert-by-group (window lst)
+  (cond ((null lst) (list window))
+        ((member window lst :test #'win=) lst)
+        (t (let ((grouper (grouper window))
+                 (w (car lst)))
+             (if (and (functionp grouper)
+                      (funcall grouper w))
+                 (cons window lst)
+                 (cons w (insert-by-group window (cdr lst))))))))
+
 (defun plus (window)
   "Add window to the list of managed windows."
-  (pushnew window *windows* :test #'win=)
+  (setf *windows* (insert-by-group window *windows*))
   window)
 
 (defun minus (window)
