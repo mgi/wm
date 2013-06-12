@@ -173,6 +173,7 @@ nothing."
       (nth (mod (funcall way nw) n) windows))))
 
 (defun insert-by-group (window lst)
+  "Insert window in the given window list respecting group affinity."
   (cond ((null lst) (list window))
         ((member window lst :test #'win=) lst)
         (t (let ((grouper (grouper window))
@@ -367,7 +368,7 @@ don't contain `sofar'."
 
 (defun grab-it (shortcut &key inverse-p)
   "Grab a given key or button shortcut in all its
-states. Use :inverse-p key to ungrab. "
+states. Use :inverse-p key to ungrab."
   (let ((code (code shortcut)))
     (if (< code 4)                      ;it's a mouse button
 	(if inverse-p
