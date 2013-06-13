@@ -353,6 +353,10 @@ don't contain `sofar'."
                          #'(lambda (host) (run (format nil "xterm -e ssh ~a" host))))
     (ungrab-keyboard *display*)))
 
+(defun banish ()
+  "Banish mouse pointer."
+  (warp-pointer *root* (screen-width *screen*) (screen-height *screen*)))
+
 ;;; Default keyboard prefix and mouse shorcuts
 (defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
 (defparameter *quit* (compile-shortcut :shift #\q) "Shortcut to quit")
@@ -408,6 +412,7 @@ states. Use :inverse-p key to ungrab."
 (defshortcut (#\p) (focus (next #'1-)))
 (defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (#\a) (app))
+(defshortcut (#\b) (banish))
 (defshortcut (#\s) (ssh))
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
