@@ -122,11 +122,6 @@ nothing."
 (defun win= (a b)
   (and (typep a 'window) (typep b 'window) (window-equal a b)))
 
-(defun skip-window (c)
-  (let ((restart (find-restart 'skip-window)))
-    (format t "~&Skipping window for ~a~%" c)
-    (when restart (invoke-restart restart))))
-
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
   (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
@@ -483,9 +478,19 @@ states. Use :inverse-p key to ungrab."
   (when (managed-p window)
     (focus (minus window))))
 
+;;; Restart function
+(defun skip-window-or-ignore-async (c)
+  (if (xlib::request-error-asynchronous c)
+      (let ((restart (find-restart 'ignore-async)))
+        (format t "~&Ignoring async error: ~a~%" c)
+        (when restart (invoke-restart restart)))
+      (let ((restart (find-restart 'skip-window)))
+        (format t "~&Skipping window for ~a~%" c)
+        (when restart (invoke-restart restart)))))
+
 (defun evloop ()
-  (do () ((eql (handler-bind (((or window-error drawable-error match-error) #'skip-window))
-                 (process-event *display* :handler *handlers* :discard-p t)) 'quit))))
+  (do () ((eql (restart-case (process-event *display* :handler *handlers* :discard-p t)
+                 (ignore-async () nil)) 'quit))))
 
 (defun main ()
   (load-rc)
@@ -501,7 +506,10 @@ states. Use :inverse-p key to ungrab."
 
   (setf *last* (setf *curr* (first *windows*)))
 
-  (unwind-protect (evloop)
+  (unwind-protect
+       (handler-bind (((or window-error drawable-error match-error)
+                        #'skip-window-or-ignore-async))
+         (evloop))
     (ungrab-all)
     (close-display *display*)))
 
