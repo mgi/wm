@@ -146,7 +146,7 @@ nothing."
       (cond (group
              (unless (member *curr* group :test #'win=)
                (setf *last* *curr*
-                     *curr* window))
+                     *curr* (first group)))
              (dolist (w group) (setf (window-priority w) :above))
              (set-input-focus *display* :pointer-root :pointer-root))
             (t
