@@ -99,11 +99,13 @@ shortcut. Takes care of CapsLock and NumLock combination."
              (rplacd ,asc #',fn)
              (push (cons ,sc #',fn) *shortcuts*))))))
 
-(defun move (window x y w h)
+(defun move (window &key x y width height)
   "Move a window."
   (with-state (window)
-    (setf (drawable-x window) x (drawable-y window) y
-          (drawable-width window) w (drawable-height window) h)))
+    (when x (setf (drawable-x window) x))
+    (when y (setf (drawable-y window) y))
+    (when width (setf (drawable-width window) width))
+    (when height (setf (drawable-height window) height))))
 
 (defun memove (window &optional x y w h)
   "Memory Move a window (i.e. toggle between current position and the
@@ -115,9 +117,9 @@ nothing."
            (remf (window-plist window) 'original-dimension))
           (t (when (and x y w h)
                (setf (getf (window-plist window) 'original-dimension)
-                     (list (drawable-x window) (drawable-y window)
-                           (drawable-width window) (drawable-height window)))
-               (move window x y w h))))))
+                     (list :x (drawable-x window) :y (drawable-y window)
+                           :width (drawable-width window) :height (drawable-height window)))
+               (move window :x x :y y :width w :height h))))))
 
 (defun win= (a b)
   (and (typep a 'window) (typep b 'window) (window-equal a b)))
@@ -472,11 +474,26 @@ states. Use :inverse-p key to ungrab."
 
 (defhandler :map-notify (window override-redirect-p)
   (unless override-redirect-p
-    (focus (plus window))))
+    (focus window)))
 
 (defhandler :unmap-notify (window)
   (when (managed-p window)
     (focus (minus window))))
+
+(defhandler :map-request (parent send-event-p window)
+  (format t "~&map-request: ~a ~a ~a~%" parent send-event-p window)
+  (map-window (plus window)))
+
+(defhandler :configure-request (stack-mode window x y width height border-width value-mask)
+  (let ((list-mask (loop for i below 4
+                         when (= (ldb (byte 1 i) value-mask) 1)
+                           nconc (case i
+                                   (0 (list :x x))
+                                   (1 (list :y y))
+                                   (2 (list :width width))
+                                   (3 (list :height height))))))
+    (format t "~&configure-request: ~a ~a ~s~%" window value-mask list-mask)
+    (when list-mask (apply #'move window list-mask))))
 
 ;;; Restart function
 (defun skip-window-or-ignore-async (c)
@@ -502,7 +519,7 @@ states. Use :inverse-p key to ungrab."
       (plus w)))
 
   (intern-atom *display* :_MOTIF_WM_HINTS)
-  (setf (window-event-mask *root*) '(:substructure-notify))
+  (setf (window-event-mask *root*) '(:substructure-notify :substructure-redirect))
 
   (setf *last* (setf *curr* (first *windows*)))
 
