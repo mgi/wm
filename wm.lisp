@@ -22,8 +22,8 @@
 (defvar *curr* nil "Current focused window.")
 (defvar *rc* (merge-pathnames ".wm.lisp" (user-homedir-pathname)) "User config file.")
 (defvar *shortcuts* nil "Shortcuts alist.")
-(defparameter *handlers* (make-list (length xlib::*event-key-vector*)
-                                    :initial-element #'(lambda (&rest slots))))
+(defvar *handlers* (make-list (length xlib::*event-key-vector*)
+                              :initial-element #'(lambda (&rest slots))))
 
 (defun argc ()
   "Return the command line argument count."
@@ -392,6 +392,24 @@ states. Use :inverse-p key to ungrab."
     (grab-it b :inverse-p t))
   (grab-it *prefix* :inverse-p t))
 
+(defparameter *cursor*
+  (let* ((white (xlib:make-color :red 1.0 :green 1.0 :blue 1.0))
+         (black (xlib:make-color :red 0.0 :green 0.0 :blue 0.0))
+         (cursor-font (xlib:open-font *display* "cursor")))
+    (xlib:create-glyph-cursor :source-font cursor-font
+                              :source-char 64
+                              :mask-font cursor-font
+                              :mask-char 65
+                              :foreground black
+                              :background white)))
+
+(defun grab-mouse (window event-mask)
+  "Grab pointer with a cursor change that states that we're talking to
+the window manager."
+    (grab-pointer window event-mask :cursor *cursor*))
+
+(defun ungrab-mouse () (ungrab-pointer *display*))
+
 (defun load-rc ()
   (ungrab-all)
   (ignore-errors (load *rc*))
@@ -433,9 +451,11 @@ states. Use :inverse-p key to ungrab."
                                                     *shortcuts*))))
                              (when (functionp fn) (funcall fn)))))
                   (ungrab-keyboard *display*)
+                  (ungrab-mouse)
                   (setf waiting-shortcut nil))))
           ((sc= *prefix* state code)
            (grab-keyboard *root*)
+           (grab-mouse *root* nil)
            (setf waiting-shortcut t)))))
 
 (defhandler :button-press (state code child)
@@ -447,7 +467,7 @@ states. Use :inverse-p key to ungrab."
           (t
            (setf last-button code)
            (focus child)
-           (grab-pointer child '(:pointer-motion :button-release))
+           (grab-mouse child '(:pointer-motion :button-release))
            (when (sc= *resize* state code)
              (warp-pointer child (drawable-width child) (drawable-height child)))
            (let ((lst (multiple-value-list (query-pointer *root*))))
@@ -470,7 +490,7 @@ states. Use :inverse-p key to ungrab."
                    (drawable-height event-window) new-h))))
     (setf last-motion time)))
 
-(defhandler :button-release () (ungrab-pointer *display*))
+(defhandler :button-release () (ungrab-mouse))
 
 (defhandler :map-notify (window override-redirect-p)
   (unless override-redirect-p
