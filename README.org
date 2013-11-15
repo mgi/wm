@@ -57,6 +57,7 @@
    - =n= or =C-n= is next managed window;
    - =p= or =C-p= is previous managed window;
    - =c= raises or runs a xterm;
+   - =C= runs a new xterm;
    - =e= raises an existing emacs or runs your $EDITOR;
    - =w= raises or runs a web browser (defaults to [[https://opensource.conformal.com/wiki/xombrero][xombrero]]);
    - =s= ssh somewhere (in a xterm);
