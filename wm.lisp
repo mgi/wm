@@ -420,7 +420,7 @@ the window manager."
 (defshortcut (:shift #\r) (load-rc))
 (defshortcut (#\c) (raise-or-run "XTerm" "xterm"))
 (defshortcut (:shift #\c) (run "xterm"))
-(defshortcut (#\e) (raise-or-run "Emacs" (getenv "EDITOR")))
+(defshortcut (#\e) (raise-or-run "Emacs" "emacs"))
 (defshortcut (#\w) (raise-or-run "XOmbrero" "xombrero"))
 (defshortcut (:control #\l) (run "xlock"))
 (defshortcut (#\n) (focus (next)))
