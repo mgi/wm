@@ -485,8 +485,21 @@ the window manager."
              (incf last-x delta-x)
              (incf last-y delta-y)))
           ((= last-button (code *resize*))
-           (let ((new-w (max 1 (- root-x (drawable-x event-window))))
-                 (new-h (max 1 (- root-y (drawable-y event-window)))))
+           (let* ((hints (get-property event-window :WM_NORMAL_HINTS))
+                  (min-w (nth 5 hints))
+                  (min-h (nth 6 hints))
+                  (inc-w (nth 9 hints))
+                  (inc-h (nth 10 hints))
+                  (real-w (- root-x (drawable-x event-window)))
+                  (real-h (- root-y (drawable-y event-window)))
+                  (new-w (max min-w
+                              (if (zerop inc-w)
+                                  real-w
+                                  (* inc-w (truncate real-w inc-w)))))
+                  (new-h (max min-h
+                              (if (zerop inc-h)
+                                  real-h
+                                  (* inc-h (truncate real-h inc-h))))))
              (setf (drawable-width event-window) new-w
                    (drawable-height event-window) new-h))))
     (setf last-motion time)))
