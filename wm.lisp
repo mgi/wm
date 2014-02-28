@@ -472,14 +472,18 @@ the window manager."
              (setf last-x (sixth lst)
                    last-y (seventh lst)))))))
 
-(defun geom-w/hints (window width height)
-  (let* ((hints (get-property window :WM_NORMAL_HINTS))
-         (min-w (nth 5 hints))
-         (min-h (nth 6 hints))
-         (inc-w (if (zerop (nth 9 hints)) 1 (nth 9 hints)))
-         (inc-h (if (zerop (nth 10 hints)) 1 (nth 10 hints)))
-         (base-w (nth 15 hints))
-         (base-h (nth 16 hints))
+(defun 1-o-value (val)
+  "Replace nil with one."
+  (if (null val) 1 val))
+
+(defun size-w/hints (window width height)
+  (let* ((hints (wm-normal-hints window))
+         (min-w (1-o-value (wm-size-hints-min-width hints)))
+         (min-h (1-o-value (wm-size-hints-min-height hints)))
+         (inc-w (1-o-value (wm-size-hints-width-inc hints)))
+         (inc-h (1-o-value (wm-size-hints-height-inc hints)))
+         (base-w (1-o-value (wm-size-hints-base-width hints)))
+         (base-h (1-o-value (wm-size-hints-base-height hints)))
          (baseismin (and (= base-w min-w) (= base-h min-h))))
     (when baseismin
       (decf width base-w)
@@ -488,18 +492,24 @@ the window manager."
           (new-h (max min-h (+ (* inc-h (truncate height inc-h)) base-h))))
       (values new-w new-h))))
 
+(defun position-w/hints (window x y)
+  (let* ((hints (wm-normal-hints window))
+         (inc-w (1-o-value (wm-size-hints-width-inc hints)))
+         (inc-h (1-o-value (wm-size-hints-height-inc hints))))
+    (values (* inc-w (truncate x inc-w)) (* inc-h (truncate y inc-h)))))
+
 (defhandler :motion-notify (event-window root-x root-y time)
   (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
     (cond ((= last-button (code *move*))
-           (let ((delta-x (- root-x last-x))
-                 (delta-y (- root-y last-y)))
+           (multiple-value-bind (delta-x delta-y)
+               (position-w/hints event-window (- root-x last-x) (- root-y last-y))
              (incf (drawable-x event-window) delta-x)
              (incf (drawable-y event-window) delta-y)
              (incf last-x delta-x)
              (incf last-y delta-y)))
           ((= last-button (code *resize*))
            (multiple-value-bind (new-w new-h)
-               (geom-w/hints event-window
+               (size-w/hints event-window
                              (- root-x (drawable-x event-window))
                              (- root-y (drawable-y event-window)))
              (setf (drawable-width event-window) new-w
