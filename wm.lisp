@@ -126,13 +126,12 @@ nothing."
 
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
-  (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
-                (skip-window () nil))))
+  (and window (find-if #'(lambda (f) (funcall f window)) *groupers*)))
 
 (defun transient-for-p (transient parent)
   (let ((pid (window-id parent)))
-    (loop for id in (restart-case (get-property transient :WM_TRANSIENT_FOR)
-                      (skip-window () nil)) thereis (= id pid))))
+    (loop for id in (get-property transient :WM_TRANSIENT_FOR)
+          thereis (= id pid))))
 
 (defun focus (window)
   (unless (null window)
@@ -142,9 +141,7 @@ nothing."
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
                     (sort (loop for w in *windows*
-                                when (restart-case (funcall grouper w)
-                                       (skip-window () nil))
-                                  collect w) #'< :key #'window-id))))
+                                when (funcall grouper w) collect w) #'< :key #'window-id))))
       (cond (group
              (unless (member *curr* group :test #'win=)
                (setf *last* *curr*
@@ -475,6 +472,22 @@ the window manager."
              (setf last-x (sixth lst)
                    last-y (seventh lst)))))))
 
+(defun geom-w/hints (window width height)
+  (let* ((hints (get-property window :WM_NORMAL_HINTS))
+         (min-w (nth 5 hints))
+         (min-h (nth 6 hints))
+         (inc-w (if (zerop (nth 9 hints)) 1 (nth 9 hints)))
+         (inc-h (if (zerop (nth 10 hints)) 1 (nth 10 hints)))
+         (base-w (nth 15 hints))
+         (base-h (nth 16 hints))
+         (baseismin (and (= base-w min-w) (= base-h min-h))))
+    (when baseismin
+      (decf width base-w)
+      (decf height base-h))
+    (let ((new-w (max min-w (+ (* inc-w (truncate width inc-w)) base-w)))
+          (new-h (max min-h (+ (* inc-h (truncate height inc-h)) base-h))))
+      (values new-w new-h))))
+
 (defhandler :motion-notify (event-window root-x root-y time)
   (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
     (cond ((= last-button (code *move*))
@@ -485,21 +498,10 @@ the window manager."
              (incf last-x delta-x)
              (incf last-y delta-y)))
           ((= last-button (code *resize*))
-           (let* ((hints (get-property event-window :WM_NORMAL_HINTS))
-                  (min-w (nth 5 hints))
-                  (min-h (nth 6 hints))
-                  (inc-w (nth 9 hints))
-                  (inc-h (nth 10 hints))
-                  (real-w (- root-x (drawable-x event-window)))
-                  (real-h (- root-y (drawable-y event-window)))
-                  (new-w (max min-w
-                              (if (zerop inc-w)
-                                  real-w
-                                  (* inc-w (truncate real-w inc-w)))))
-                  (new-h (max min-h
-                              (if (zerop inc-h)
-                                  real-h
-                                  (* inc-h (truncate real-h inc-h))))))
+           (multiple-value-bind (new-w new-h)
+               (geom-w/hints event-window
+                             (- root-x (drawable-x event-window))
+                             (- root-y (drawable-y event-window)))
              (setf (drawable-width event-window) new-w
                    (drawable-height event-window) new-h))))
     (setf last-motion time)))
@@ -529,19 +531,8 @@ the window manager."
     (format t "~&configure-request: ~a ~a ~s~%" window value-mask list-mask)
     (when list-mask (apply #'move window list-mask))))
 
-;;; Restart function
-(defun skip-window-or-ignore-async (c)
-  (if (xlib::request-error-asynchronous c)
-      (let ((restart (find-restart 'ignore-async)))
-        (format t "~&Ignoring async error: ~a~%" c)
-        (when restart (invoke-restart restart)))
-      (let ((restart (find-restart 'skip-window)))
-        (format t "~&Skipping window for ~a~%" c)
-        (when restart (invoke-restart restart)))))
-
 (defun evloop ()
-  (do () ((eql (restart-case (process-event *display* :handler *handlers* :discard-p t)
-                 (ignore-async () nil)) 'quit))))
+  (do () ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit))))
 
 (defun main ()
   (load-rc)
@@ -557,10 +548,7 @@ the window manager."
 
   (setf *last* (setf *curr* (first *windows*)))
 
-  (unwind-protect
-       (handler-bind (((or window-error drawable-error match-error)
-                        #'skip-window-or-ignore-async))
-         (evloop))
+  (unwind-protect (evloop)
     (ungrab-all)
     (close-display *display*)))
 
