@@ -42,10 +42,6 @@
 ;; windows of this app by X Window class.
 (defshortcut (:mod-1 #\e) (run "envi"))
 (push #'(lambda (w) (string= (xclass w) "Idl")) *groupers*)
-
-;; Redefine ssh hosts. The default is "cleverly" parsed from
-;; $HOME/.ssh/config if you have one.
-(setf *ssh-hosts* '("alice" "bob"))
 #+END_SRC
 ** Shortcuts
    =Control-t= is the default prefix key. Every shortcut starts with
@@ -60,7 +56,6 @@
    - =C= runs a new xterm;
    - =e= raises or run an emacs;
    - =w= raises or runs a web browser (defaults to [[https://opensource.conformal.com/wiki/xombrero][xombrero]]);
-   - =s= ssh somewhere (in a xterm);
    - =C-l= locks the screen with xlock;
    - =a= is the app launcher: keys hit after will look for the correct
      app;

@@ -326,27 +326,6 @@ don't contain `sofar'."
   (unwind-protect (recdo *windows* #'focus :key #'xclass :matcher #'in-matcher)
     (ungrab-keyboard *display*)))
 
-(defun parse-ssh-config ()
-  (handler-case
-      (with-open-file (fd (merge-pathnames ".ssh/config" (user-homedir-pathname)))
-        (do ((line (read-line fd nil nil) (read-line fd nil nil))
-             res)
-            ((null line) res)
-          (let ((line-no-comment (string-trim " 	"
-                                              (subseq line 0 (position #\# line)))))
-            (multiple-value-bind (val pos) (read-from-string line-no-comment nil nil)
-              (when (eql val 'HOST)
-                (push (subseq line-no-comment pos) res))))))
-    (file-error () nil)))
-
-(defparameter *ssh-hosts* (parse-ssh-config))
-
-(defun ssh ()
-  (grab-keyboard *root*)
-  (unwind-protect (recdo *ssh-hosts*
-                         #'(lambda (host) (run (format nil "xterm -e ssh ~a" host))))
-    (ungrab-keyboard *display*)))
-
 (defun banish ()
   "Banish mouse pointer."
   (warp-pointer *root* (screen-width *screen*) (screen-height *screen*)))
@@ -426,7 +405,6 @@ the window manager."
 (defshortcut (:control #\p) (focus (next #'1-)))
 (defshortcut (#\a) (app))
 (defshortcut (#\b) (banish))
-(defshortcut (#\s) (ssh))
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
 (defshortcut (#\.) (center))
