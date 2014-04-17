@@ -63,6 +63,7 @@
      the first window of the given class;
    - =f= toggles the current window to fullscreen (and revert
      size/position when changing focus);
+   - =F= toggles the current window to fullscreen permanently;
    - =.= centers the current window (and revert as fullscreen);
    - =b= banish mouse pointer;
    - =R= reloads the configuration file;

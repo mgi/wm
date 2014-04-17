@@ -195,11 +195,13 @@ focused."
 (defun managed-p (window)
   (member window *windows* :test #'win=))
 
-(defun fullscreen ()
+(defun fullscreen (&key permanent-p)
   "Toggle fullscreen the current window."
   (let ((sw (screen-width *screen*))
         (sh (screen-height *screen*)))
-    (memove *curr* 0 0 sw sh)))
+    (if permanent-p
+        (move *curr* :x 0 :y 0 :width sw :height sh)
+        (memove *curr* 0 0 sw sh))))
 
 (defun center ()
   "Toggle center the current window."
@@ -407,6 +409,7 @@ the window manager."
 (defshortcut (#\b) (banish))
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
+(defshortcut (:shift #\f) (fullscreen :permanent-p t))
 (defshortcut (#\.) (center))
 (defshortcut (:shift #\.) (center))
 
