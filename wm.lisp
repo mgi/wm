@@ -464,7 +464,7 @@ the window manager."
                    (values (* inc-w (truncate x inc-w)) (* inc-h (truncate y inc-h)))))
           (t (values x y)))))
 
-(defhandler :button-press (state code child)
+(defhandler :button-press (state code child x y)
   (when (and child (eql (window-override-redirect child) :off)
              (null (let ((w (find child *windows* :test #'win=)))
                      (when w (getf (window-plist w) 'original-dimension)))))
@@ -481,9 +481,8 @@ the window manager."
                (cond (hints (warp-pointer child (- width (0-o-value (wm-size-hints-base-width hints)))
                                           (- height (0-o-value (wm-size-hints-base-height hints)))))
                      (t (warp-pointer child  width height)))))
-           (let ((lst (multiple-value-list (query-pointer *root*))))
-             (setf last-x (sixth lst)
-                   last-y (seventh lst)))))))
+           (setf last-x x
+                 last-y y)))))
 
 (defhandler :motion-notify (event-window root-x root-y time)
   (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
