@@ -214,7 +214,7 @@ focused."
   (unless (null *windows*)
     (when (win= *curr* window) (setf *curr* *last*))
     (when (win= *last* window) (setf *last* (next)))
-    (when (win= *curr* *last*) (setf *last* (next)))
+    (when (win= *curr* *last*) (setf *last* (next #'1-)))
     *curr*))
 
 (defun managed-p (window)
