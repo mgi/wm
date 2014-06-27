@@ -156,7 +156,7 @@ nothing."
 (defun transient-for-p (transient parent)
   (let ((pid (window-id parent)))
     (loop for id in (get-property transient :WM_TRANSIENT_FOR)
-          thereis (= id pid))))
+	    thereis (= id pid))))
 
 (defun focus (window)
   (unless (null window)
@@ -409,7 +409,7 @@ states. Use :inverse-p key to ungrab."
 (defun grab-mouse (window event-mask)
   "Grab pointer with a cursor change that states that we're talking to
 the window manager."
-    (grab-pointer window event-mask :cursor *cursor*))
+  (grab-pointer window event-mask :cursor *cursor*))
 
 (defun ungrab-mouse () (ungrab-pointer *display*))
 
