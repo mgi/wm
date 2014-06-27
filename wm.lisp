@@ -536,6 +536,7 @@ the window manager."
   (setf (window-event-mask *root*) '(:substructure-notify :substructure-redirect))
 
   (setf *last* (setf *curr* (first *windows*)))
+  (focus *curr*)
 
   (unwind-protect (evloop)
     (ungrab-all)
