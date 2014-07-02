@@ -99,16 +99,15 @@ shortcut. Takes care of CapsLock and NumLock combination."
              (rplacd ,asc #',fn)
              (push (cons ,sc #',fn) *shortcuts*))))))
 
-(defun move (window &key x y width height dx dy dw dh)
-  "Move a window with respect to sizehints. Returns effective size
-values."
+(defun correct-size (window &optional x y width height dx dy dw dh)
+  "Correct a window's dimensions with its sizehints."
   (let ((hints (wm-normal-hints window)))
     (when hints (let* ((min-w (or (wm-size-hints-min-width hints) 1))
                        (min-h (or (wm-size-hints-min-height hints) 1))
                        (inc-w (or (wm-size-hints-width-inc hints) 1))
                        (inc-h (or (wm-size-hints-height-inc hints) 1))
-                       (base-w (or (wm-size-hints-base-width hints) 1))
-                       (base-h (or (wm-size-hints-base-height hints) 1)))
+                       (base-w (or (wm-size-hints-base-width hints) 0))
+                       (base-h (or (wm-size-hints-base-height hints) 0)))
                   (when x (setf x (* inc-w (truncate x inc-w))))
                   (when y (setf y (* inc-h (truncate y inc-h))))
                   (when width
@@ -121,15 +120,37 @@ values."
                   (when dy (setf dy (* inc-h (truncate dy inc-h))))
                   (when dh (setf dh (* inc-h (truncate dh inc-h))))
                   (when dw (setf dw (* inc-w (truncate dw inc-w))))))
+    (values x y width height dx dy dw dh)))
+
+(defun move (window &key x y width height dx dy dw dh)
+  "Move a window with respect to sizehints. Returns effective size
+values."
+  (multiple-value-bind (x y width height dx dy dw dh)
+      (correct-size window x y width height dx dy dw dh)
+    ;; if not provided get current geometry
+    (unless x (setf x (drawable-x window)))
+    (unless y (setf y (drawable-y window)))
+    (unless width (setf width (drawable-width window)))
+    (unless height (setf height (drawable-height window)))
+
+    ;; dx, dy, dw and dh are rewritten in absolute form
+    (when dx (incf x dx))
+    (when dy (incf y dy))
+    (when dw (let ((new-w (+ width dw)))
+	       (cond ((minusp new-w)
+		      (incf x new-w)
+		      (setf width (abs new-w)))
+		     (t (setf width new-w)))))
+    (when dh (let ((new-h (+ height dh)))
+	       (cond ((minusp new-h)
+		      (incf y new-h)
+		      (setf height (abs new-h)))
+		     (t (setf height new-h)))))
     (with-state (window)
-      (when x (setf (drawable-x window) x))
-      (when y (setf (drawable-y window) y))
-      (when width (setf (drawable-width window) width))
-      (when height (setf (drawable-height window) height))
-      (when dx (incf (drawable-x window) dx))
-      (when dy (incf (drawable-y window) dy))
-      (when dw (incf (drawable-width window) dw))
-      (when dh (incf (drawable-height window) dh)))
+      (setf (drawable-x window) x
+    	    (drawable-y window) y
+    	    (drawable-width window) width
+    	    (drawable-height window) height))
     (values x y width height dx dy dw dh)))
 
 (defun memove (window &optional x y w h)
@@ -462,37 +483,49 @@ the window manager."
            (grab-mouse *root* nil)
            (setf waiting-shortcut t)))))
 
-
 (defhandler :button-press (state code child x y)
   (when (and child (eql (window-override-redirect child) :off)
              (null (let ((w (find child *windows* :test #'win=)))
                      (when w (getf (window-plist w) 'original-dimension)))))
     (cond ((sc= *close* state code)
            (send-message child :WM_PROTOCOLS (intern-atom *display* :WM_DELETE_WINDOW)))
-          (t
+	  (t
+	   (cond ((sc= *move* state code)
+		  (setf last-x x last-y y))
+		 ((sc= *resize* state code)
+		  (multiple-value-bind (x y width height)
+		      (move child :width (drawable-width child)
+				  :height (drawable-height child))
+		    ;; here i use [last-x; last-y] as the [x; y]
+		    ;; position of the current window
+		    (setf last-x x last-y y)
+		    (warp-pointer child width height))))
            (setf last-button code)
-           (focus child)
-           (grab-mouse child '(:pointer-motion :button-release))
-           (when (sc= *resize* state code)
-             (multiple-value-bind (x y width height)
-                 (move child :width (drawable-width child)
-                             :height (drawable-height child))
-               (warp-pointer child width height)))
-           (setf last-x x
-                 last-y y)))))
+	   (focus child)
+	   (grab-mouse child '(:pointer-motion :button-release))))))
 
 (defhandler :motion-notify (event-window root-x root-y time)
   (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
-    (cond ((= last-button (code *move*))
-           (let ((delta-x (- root-x last-x))
-                 (delta-y (- root-y last-y)))
-             (multiple-value-bind (x y width height dx dy dw dh)
-                 (move event-window :dx delta-x :dy delta-y)
-               (incf last-x dx)
-               (incf last-y dy))))
-          ((= last-button (code *resize*))
-           (move event-window :width (- root-x (drawable-x event-window))
-                              :height (- root-y (drawable-y event-window)))))
+    (let ((delta-x (- root-x last-x))
+	  (delta-y (- root-y last-y)))
+      (cond ((= last-button (code *move*))
+	     (multiple-value-bind (x y width height dx dy)
+		 (move event-window :dx delta-x :dy delta-y)
+	       (incf last-x dx)
+               (incf last-y dy)))
+	    ((= last-button (code *resize*))
+	     (let (pos)
+	       (if (plusp delta-x)
+		   (setf (getf pos :x) last-x
+			 (getf pos :width) delta-x)
+		   (setf (getf pos :x) (+ last-x delta-x)
+			 (getf pos :width) (abs delta-x)))
+	       (if (plusp delta-y)
+		   (setf (getf pos :y) last-y
+			 (getf pos :height) delta-y)
+		   (setf (getf pos :y) (+ last-y delta-y)
+			 (getf pos :height) (abs delta-y)))
+	       (apply #'move event-window pos)))))
     (setf last-motion time)))
 
 (defhandler :button-release () (ungrab-mouse))
