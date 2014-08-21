@@ -271,17 +271,24 @@ if there were an empty string between them."
         collect (subseq string i j)
         while j))
 
+(defun x11-capitalize (string)
+  "Returns a capitalize string according to X11 class name
+convention."
+  (if (char= (elt string 0) #\x)
+      (concatenate 'string "X" (string-capitalize (subseq string 1)))
+      (string-capitalize string)))
+
 (defun run (command)
   (let ((com (split-string command)))
     #+clisp (ext:run-program (first com) :arguments (rest com) :wait nil)
     #+sbcl (sb-ext:run-program (first com) (rest com) :wait nil :search t)))
 
-(defun raise-or-run (class command)
-  "Raise a window of a given class or run the command."
-  (let ((win (find class *windows* :test #'string-equal :key #'xclass)))
+(defun raise-or-run (program)
+  "Raise (an existing window) or run a program."
+  (let ((win (find (x11-capitalize program) *windows* :test #'string-equal :key #'xclass)))
     (if win
 	(focus win)
-	(run command))))
+	(run program))))
 
 (defun send-message (window type &rest data)
   (send-event window :client-message nil :window window
@@ -445,10 +452,10 @@ the window manager."
 
 ;;; Keyboard shortcuts
 (defshortcut (:shift #\r) (load-rc))
-(defshortcut (#\c) (raise-or-run "XTerm" "xterm"))
+(defshortcut (#\c) (raise-or-run "xterm"))
 (defshortcut (:shift #\c) (run "xterm"))
-(defshortcut (#\e) (raise-or-run "Emacs" "emacs"))
-(defshortcut (#\w) (raise-or-run "XOmbrero" "xombrero"))
+(defshortcut (#\e) (raise-or-run "emacs"))
+(defshortcut (#\w) (raise-or-run "xombrero"))
 (defshortcut (:control #\l) (run "xlock"))
 (defshortcut (#\n) (focus (next)))
 (defshortcut (:control #\n) (focus (next)))
