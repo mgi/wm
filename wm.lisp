@@ -99,6 +99,9 @@ shortcut. Takes care of CapsLock and NumLock combination."
              (rplacd ,asc #',fn)
              (push (cons ,sc #',fn) *shortcuts*))))))
 
+(defmethod print-object ((w window) stream)
+  (format stream "#<WINDOW ~x ~s>" (window-id w) (wm-name w)))
+
 (defun correct-size (window &optional x y width height dx dy dw dh)
   "Correct a window's dimensions with its sizehints."
   (let ((hints (wm-normal-hints window)))
