@@ -172,7 +172,8 @@ nothing."
 
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
-  (and window (find-if #'(lambda (f) (funcall f window)) *groupers*)))
+  (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
+		(dead-window () nil))))
 
 (defun transient-for-p (transient parent)
   (let ((pid (window-id parent)))
@@ -561,6 +562,13 @@ the window manager."
     (format t "~&configure-request: ~a ~a ~s~%" window value-mask list-mask)
     (when list-mask (apply #'move window list-mask))))
 
+;; Restart functions
+(defun skip-window (c)
+  (let ((restart (find-restart 'dead-window)))
+    (when restart
+      (format t "~&Skipping window for ~a~%" c)
+      (invoke-restart restart))))
+
 (defun evloop ()
   (do () ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit))))
 
@@ -579,7 +587,7 @@ the window manager."
   (setf *last* (setf *curr* (first *windows*)))
   (focus *curr*)
 
-  (unwind-protect (evloop)
+  (unwind-protect (handler-bind ((window-error #'skip-window)) (evloop))
     (ungrab-all)
     (close-display *display*)))
 
