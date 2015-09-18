@@ -454,7 +454,7 @@ the window manager."
 (defshortcut (#\c) (raise-or-run "xterm"))
 (defshortcut (:shift #\c) (run "xterm"))
 (defshortcut (#\e) (raise-or-run "emacs"))
-(defshortcut (#\w) (raise-or-run "xombrero"))
+(defshortcut (#\w) (raise-or-run "firefox"))
 (defshortcut (:control #\l) (run "xlock"))
 (defshortcut (#\n) (focus (next)))
 (defshortcut (:control #\n) (focus (next)))
