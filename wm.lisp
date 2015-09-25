@@ -54,7 +54,12 @@
                 ,@body))
        (setf (elt *handlers* (position ,event xlib::*event-key-vector*)) #',fn-name))))
 
-(defun xclass (window) (multiple-value-bind (name class) (get-wm-class window) class))
+(defun xclass (window) (multiple-value-bind (name class)
+                           (restart-case (get-wm-class window)
+                             (window-error ()
+                               (format t "~&No class on ~a~%" window)
+                               (values "" "I'm dead")))
+                         class))
 
 (defparameter *groupers* (list
                           #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal)))
@@ -173,7 +178,7 @@ nothing."
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
   (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
-		(dead-window () nil))))
+		(window-error () nil))))
 
 (defun transient-for-p (transient parent)
   (let ((pid (window-id parent)))
@@ -234,11 +239,12 @@ nothing."
   "House keeping when window is unmapped. Returns the window to be
 focused."
   (setf *windows* (remove window *windows* :test #'win=))
-  (unless (null *windows*)
-    (when (win= *curr* window) (setf *curr* *last*))
-    (when (win= *last* window) (setf *last* (next)))
-    (when (win= *curr* *last*) (setf *last* (next #'1-)))
-    *curr*))
+  (cond ((null *windows*) (setf *curr* nil *last* nil))
+        (:otherwise
+         (when (win= *curr* window) (setf *curr* *last*))
+         (when (win= *last* window) (setf *last* (next)))
+         (when (win= *curr* *last*) (setf *last* (next #'1-)))
+         *curr*)))
 
 (defun managed-p (window)
   (member window *windows* :test #'win=))
@@ -549,7 +555,10 @@ the window manager."
 
 (defhandler :map-request (parent send-event-p window)
   (format t "~&map-request: ~a ~a ~a~%" parent send-event-p window)
-  (map-window (plus window)))
+  (restart-case (map-window (plus window))
+    (window-error ()
+      (format t "~&ZZZ ~a~%" window)
+      'mmkay)))
 
 (defhandler :configure-request (stack-mode window x y width height border-width value-mask)
   (let ((list-mask (loop for i below 4
@@ -560,13 +569,16 @@ the window manager."
                                    (2 (list :width width))
                                    (3 (list :height height))))))
     (format t "~&configure-request: ~a ~a ~s~%" window value-mask list-mask)
-    (when list-mask (apply #'move window list-mask))))
+    (restart-case (when list-mask (apply #'move window list-mask))
+      (window-error ()
+        (format t "~&XXX ~a~%" window)
+        'wont-move))))
 
 ;; Restart functions
-(defun skip-window (c)
-  (let ((restart (find-restart 'dead-window)))
+(defun window-error (c)
+  (declare (ignore c))
+  (let ((restart (find-restart 'window-error)))
     (when restart
-      (format t "~&Skipping window for ~a~%" c)
       (invoke-restart restart))))
 
 (defun evloop ()
@@ -587,7 +599,7 @@ the window manager."
   (setf *last* (setf *curr* (first *windows*)))
   (focus *curr*)
 
-  (unwind-protect (handler-bind ((window-error #'skip-window)) (evloop))
+  (unwind-protect (handler-bind ((window-error #'window-error)) (evloop))
     (ungrab-all)
     (close-display *display*)))
 
