@@ -67,17 +67,6 @@
 
 (defstruct (shortcut (:conc-name)) (states nil) (code 0))
 
-(defmethod print-object ((sc shortcut) stream)
-  (let* ((state (make-state-keys (first (states sc))))
-         (code (code sc))
-         (k (if (< code 4) code (keycode->character *display* code 0))))
-    (when (member :shift state)
-      (setf state (remove :shift state)
-            k (char-upcase k)))
-    (format stream "~a~a" (concatenate 'string
-                                       (when (member :control state) "C-")
-                                       (when (member :mod-1 state) "M-")) k)))
-
 (defun compile-shortcut (&rest l)
   "Compile a shortcut. Usage: (compile-shortcut :control #\t) for a
 keyboard shortcut or (compile-shortcut :mod-1 1) for a mouse
