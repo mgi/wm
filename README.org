@@ -6,8 +6,8 @@
   - No more than 1000 SLOC;
   - Just functionality: don't do anything fancy (text, icon, color or
     decoration) to avoid code clutter;
-  - No [[http://standards.freedesktop.org/wm-spec/wm-spec-latest.html][EWMH]] as implementing this shit would bloat the code for little
-    (if any) improvements.
+  - No [[http://standards.freedesktop.org/wm-spec/wm-spec-latest.html][EWMH]] as implementing this would bloat the code for little (if
+    any) improvements.
 * Help
 ** Install
    - Install [[http://www.sbcl.org/][SBCL]] or [[http://www.clisp.org/][CLISP]] on your system (should be available via
@@ -35,8 +35,8 @@
 (setf *prefix* (compile-shortcut :control #\a))
 (setf *quit* (compile-shortcut :control :shift #\q))
 
-;; Use Firefox as web browser
-(defshortcut (#\w) (raise-or-run "Firefox" "firefox"))
+;; Use Chrome as web browser
+(defshortcut (#\w) (raise-or-run "chrome"))
 
 ;; Define a new shortcut for a local application and group all the
 ;; windows of this app by X Window class.
@@ -55,7 +55,7 @@
    - =c= raises or runs a xterm;
    - =C= runs a new xterm;
    - =e= raises or run an emacs;
-   - =w= raises or runs a web browser (defaults to [[https://opensource.conformal.com/wiki/xombrero][xombrero]]);
+   - =w= raises or runs a web browser (defaults to [[https://www.mozilla.org/en-US/firefox/new/][firefox]]);
    - =C-l= locks the screen with xlock;
    - =a= is the app launcher: keys hit after will look for the correct
      app;
