@@ -280,7 +280,8 @@ convention."
 (defun run (command)
   (let ((com (split-string command)))
     #+clisp (ext:run-program (first com) :arguments (rest com) :wait nil)
-    #+sbcl (sb-ext:run-program (first com) (rest com) :wait nil :search t)))
+    #+sbcl (restart-case (sb-ext:run-program (first com) (rest com) :wait nil :search t)
+                         (simple-error () (format t "~&Cannot execute ~s~%" (first com))))))
 
 (defun raise-or-run (program)
   "Raise (an existing window) or run a program."
@@ -569,11 +570,17 @@ the window manager."
         'wont-move))))
 
 ;; Restart functions
-(defun window-error (c)
-  (declare (ignore c))
-  (let ((restart (find-restart 'window-error)))
-    (when restart
-      (invoke-restart restart))))
+(defmacro defrestart (name)
+  (let ((fname (intern (concatenate 'string "RESTART-" (symbol-name name)))))
+    (with-gensyms (c restart)
+      `(defun ,fname (,c)
+         (declare (ignore ,c))
+         (let ((,restart (find-restart ',name)))
+           (when ,restart
+             (invoke-restart ,restart)))))))
+
+(defrestart window-error)
+(defrestart simple-error)
 
 (defun evloop ()
   (do () ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit))))
@@ -593,7 +600,9 @@ the window manager."
   (setf *last* (setf *curr* (first *windows*)))
   (focus *curr*)
 
-  (unwind-protect (handler-bind ((window-error #'window-error)) (evloop))
+  (unwind-protect (handler-bind ((window-error #'restart-window-error)
+                                 (simple-error #'restart-simple-error))
+                    (evloop))
     (ungrab-all)
     (close-display *display*)))
 
