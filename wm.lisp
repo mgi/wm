@@ -551,9 +551,12 @@ the window manager."
 (defhandler :map-request (parent send-event-p window)
   (format t "~&map-request: ~a ~a ~a~%" parent send-event-p window)
   (restart-case (map-window (plus window))
-    (window-error ()
-      (format t "~&ZZZ ~a~%" window)
-      'mmkay)))
+    (window-error (c)
+      (format t "~&map-request: ~a ~a~%" c window)
+      'processed)
+    (value-error (c)
+      (format t "~&map-request: ~a ~a~%" c window)
+      'processed)))
 
 (defhandler :configure-request (stack-mode window x y width height border-width value-mask)
   (let ((list-mask (loop for i below 4
@@ -565,22 +568,25 @@ the window manager."
                                    (3 (list :height height))))))
     (format t "~&configure-request: ~a ~a ~s~%" window value-mask list-mask)
     (restart-case (when list-mask (apply #'move window list-mask))
-      (window-error ()
-        (format t "~&XXX ~a~%" window)
-        'wont-move))))
+      (window-error (c)
+        (format t "~&configure-request: ~a ~a~%" c window)
+        'processed)
+      (value-error (c)
+        (format t "~&configure-request: ~a ~a~%" c window)
+        'processed))))
 
 ;; Restart functions
 (defmacro defrestart (name)
   (let ((fname (intern (concatenate 'string "RESTART-" (symbol-name name)))))
     (with-gensyms (c restart)
       `(defun ,fname (,c)
-         (declare (ignore ,c))
          (let ((,restart (find-restart ',name)))
            (when ,restart
-             (invoke-restart ,restart)))))))
+             (invoke-restart ,restart ,c)))))))
 
 (defrestart window-error)
 (defrestart simple-error)
+(defrestart value-error)
 
 (defun evloop ()
   (do () ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit))))
@@ -601,6 +607,7 @@ the window manager."
   (focus *curr*)
 
   (unwind-protect (handler-bind ((window-error #'restart-window-error)
+                                 (value-error #'restart-value-error)
                                  (simple-error #'restart-simple-error))
                     (evloop))
     (ungrab-all)
