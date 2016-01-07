@@ -56,7 +56,7 @@
 
 (defun xclass (window) (multiple-value-bind (name class)
                            (restart-case (get-wm-class window)
-                             (window-error ()
+                             (window-error (c)
                                (format t "~&No class on ~a~%" window)
                                (values "" "I'm dead")))
                          class))
@@ -172,7 +172,7 @@ nothing."
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
   (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
-		(window-error () nil))))
+		(window-error (c) nil))))
 
 (defun transient-for-p (transient parent)
   (let ((pid (window-id parent)))
@@ -281,7 +281,7 @@ convention."
   (let ((com (split-string command)))
     #+clisp (ext:run-program (first com) :arguments (rest com) :wait nil)
     #+sbcl (restart-case (sb-ext:run-program (first com) (rest com) :wait nil :search t)
-                         (simple-error () (format t "~&Cannot execute ~s~%" (first com))))))
+                         (simple-error (c) (format t "~&Cannot execute ~s~%" (first com))))))
 
 (defun raise-or-run (program)
   "Raise (an existing window) or run a program."
