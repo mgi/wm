@@ -11,12 +11,12 @@
 ;;; Load CLX and make a package
 (ql:quickload :clx)
 (defpackage :most.simple.wm
-  (:use :common-lisp :xlib))
+  (:use :common-lisp))
 (in-package :most.simple.wm)
 
-(defvar *display* (open-default-display))
-(defvar *screen* (display-default-screen *display*))
-(defvar *root* (screen-root *screen*))
+(defvar *display* (xlib:open-default-display))
+(defvar *screen* (xlib:display-default-screen *display*))
+(defvar *root* (xlib:screen-root *screen*))
 (defvar *windows* nil "List of managed windows.")
 (defvar *last* nil "Last focused window.")
 (defvar *curr* nil "Current focused window.")
@@ -39,10 +39,10 @@ argument."
 
 ;;; Set screen geometry if provided on command line
 (cond ((= (argc) 1)
-       (setf (screen-height *screen*) (parse-integer (args 0))))
+       (setf (xlib:screen-height *screen*) (parse-integer (args 0))))
       ((= (argc) 2)
-       (setf (screen-height *screen*) (parse-integer (args 0))
-             (screen-width *screen*) (parse-integer (args 1)))))
+       (setf (xlib:screen-height *screen*) (parse-integer (args 0))
+             (xlib:screen-width *screen*) (parse-integer (args 1)))))
 
 (defmacro with-gensyms (syms &body body)
   `(let ,(mapcar #'(lambda (s) `(,s (gensym))) syms)
@@ -56,7 +56,7 @@ argument."
        (setf (elt *handlers* (position ,event xlib::*event-key-vector*)) #',fn-name))))
 
 (defun xclass (window) (multiple-value-bind (name class)
-                           (restart-case (get-wm-class window)
+                           (restart-case (xlib:get-wm-class window)
                              (window-error (c)
                                (format t "~&No class on ~a~%" window)
                                (values "" "I'm dead")))
@@ -74,13 +74,13 @@ keyboard shortcut or (compile-shortcut :mod-1 1) for a mouse
 shortcut. Takes care of CapsLock and NumLock combination."
   (let* ((k (car (last l)))
          (mods (butlast l))
-         (states (list (apply #'make-state-mask mods)
-                       (apply #'make-state-mask (cons :lock mods))
-                       (apply #'make-state-mask (cons :mod-2 mods))
-                       (apply #'make-state-mask (append '(:lock :mod-2) mods)))))
+         (states (list (apply #'xlib:make-state-mask mods)
+                       (apply #'xlib:make-state-mask (cons :lock mods))
+                       (apply #'xlib:make-state-mask (cons :mod-2 mods))
+                       (apply #'xlib:make-state-mask (append '(:lock :mod-2) mods)))))
     (if (characterp k)
         (let ((code (car (last (multiple-value-list
-                                (keysym->keycodes *display* (car (character->keysyms k))))))))
+                                (xlib:keysym->keycodes *display* (car (xlib:character->keysyms k))))))))
           (make-shortcut :states states :code code))
         (make-shortcut :states states :code k))))
 
@@ -101,13 +101,13 @@ shortcut. Takes care of CapsLock and NumLock combination."
 
 (defun correct-size (window &optional x y width height dx dy dw dh)
   "Correct a window's dimensions with its sizehints."
-  (let ((hints (wm-normal-hints window)))
-    (when hints (let* ((min-w (or (wm-size-hints-min-width hints) 1))
-                       (min-h (or (wm-size-hints-min-height hints) 1))
-                       (inc-w (or (wm-size-hints-width-inc hints) 1))
-                       (inc-h (or (wm-size-hints-height-inc hints) 1))
-                       (base-w (or (wm-size-hints-base-width hints) 0))
-                       (base-h (or (wm-size-hints-base-height hints) 0)))
+  (let ((hints (xlib:wm-normal-hints window)))
+    (when hints (let* ((min-w (or (xlib:wm-size-hints-min-width hints) 1))
+                       (min-h (or (xlib:wm-size-hints-min-height hints) 1))
+                       (inc-w (or (xlib:wm-size-hints-width-inc hints) 1))
+                       (inc-h (or (xlib:wm-size-hints-height-inc hints) 1))
+                       (base-w (or (xlib:wm-size-hints-base-width hints) 0))
+                       (base-h (or (xlib:wm-size-hints-base-height hints) 0)))
                   (when x (setf x (* inc-w (truncate x inc-w))))
                   (when y (setf y (* inc-h (truncate y inc-h))))
                   (when width
@@ -128,10 +128,10 @@ values."
   (multiple-value-bind (x y width height dx dy dw dh)
       (correct-size window x y width height dx dy dw dh)
     ;; if not provided get current geometry
-    (unless x (setf x (drawable-x window)))
-    (unless y (setf y (drawable-y window)))
-    (unless width (setf width (drawable-width window)))
-    (unless height (setf height (drawable-height window)))
+    (unless x (setf x (xlib:drawable-x window)))
+    (unless y (setf y (xlib:drawable-y window)))
+    (unless width (setf width (xlib:drawable-width window)))
+    (unless height (setf height (xlib:drawable-height window)))
 
     ;; dx, dy, dw and dh are rewritten in absolute form
     (when dx (incf x dx))
@@ -146,29 +146,29 @@ values."
 		      (incf y new-h)
 		      (setf height (abs new-h)))
 		     (t (setf height new-h)))))
-    (with-state (window)
-      (setf (drawable-x window) x
-    	    (drawable-y window) y
-    	    (drawable-width window) width
-    	    (drawable-height window) height))
+    (xlib:with-state (window)
+      (setf (xlib:drawable-x window) x
+            (xlib:drawable-y window) y
+            (xlib:drawable-width window) width
+            (xlib:drawable-height window) height))
     (values x y width height dx dy dw dh)))
 
 (defun memove (window &optional x y w h)
   "Memory Move a window (i.e. toggle between current position and the
 given one). Without a given new position reset position or does
 nothing."
-  (let ((dim (getf (window-plist window) 'original-dimension)))
+  (let ((dim (getf (xlib:window-plist window) 'original-dimension)))
     (cond (dim
            (apply #'move window dim)
-           (remf (window-plist window) 'original-dimension))
+           (remf (xlib:window-plist window) 'original-dimension))
           (t (when (and x y w h)
-               (setf (getf (window-plist window) 'original-dimension)
-                     (list :x (drawable-x window) :y (drawable-y window)
-                           :width (drawable-width window) :height (drawable-height window)))
+               (setf (getf (xlib:window-plist window) 'original-dimension)
+                     (list :x (xlib:drawable-x window) :y (xlib:drawable-y window)
+                           :width (xlib:drawable-width window) :height (xlib:drawable-height window)))
                (move window :x x :y y :width w :height h))))))
 
 (defun win= (a b)
-  (and (typep a 'window) (typep b 'window) (window-equal a b)))
+  (and (typep a 'xlib:window) (typep b 'xlib:window) (xlib:window-equal a b)))
 
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
@@ -176,9 +176,9 @@ nothing."
 		(window-error (c) nil))))
 
 (defun transient-for-p (transient parent)
-  (let ((pid (window-id parent)))
-    (unless (= (window-id transient) pid)
-      (loop for id in (get-property transient :WM_TRANSIENT_FOR)
+  (let ((pid (xlib:window-id parent)))
+    (unless (= (xlib:window-id transient) pid)
+      (loop for id in (xlib:get-property transient :WM_TRANSIENT_FOR)
 	 thereis (= id pid)))))
 
 (defun focus (window)
@@ -189,19 +189,19 @@ nothing."
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
                     (sort (loop for w in *windows*
-                                when (funcall grouper w) collect w) #'< :key #'window-id))))
+                                when (funcall grouper w) collect w) #'< :key #'xlib:window-id))))
       (cond (group
              (unless (member *curr* group :test #'win=)
                (setf *last* *curr*
                      *curr* (first group)))
-             (dolist (w group) (setf (window-priority w) :above))
-             (set-input-focus *display* :pointer-root :pointer-root))
+             (dolist (w group) (setf (xlib:window-priority w) :above))
+             (xlib:set-input-focus *display* :pointer-root :pointer-root))
             (t
              (unless (win= *curr* window)
                (setf *last* *curr*
                      *curr* window))
-             (set-input-focus *display* window :pointer-root)))
-      (setf (window-priority window) :above))))
+             (xlib:set-input-focus *display* window :pointer-root)))
+      (setf (xlib:window-priority window) :above))))
 
 (defun next (&optional (way #'1+))
   (let* ((grouper (grouper *curr*))
@@ -246,18 +246,18 @@ focused."
 
 (defun fullscreen (&key permanent-p)
   "Toggle fullscreen the current window."
-  (let ((sw (screen-width *screen*))
-        (sh (screen-height *screen*)))
+  (let ((sw (xlib:screen-width *screen*))
+        (sh (xlib:screen-height *screen*)))
     (if permanent-p
         (move *curr* :x 0 :y 0 :width sw :height sh)
         (memove *curr* 0 0 sw sh))))
 
 (defun center ()
   "Toggle center the current window."
-  (let ((sw (screen-width *screen*))
-        (sh (screen-height *screen*))
-        (w (drawable-width *curr*))
-        (h (drawable-height *curr*)))
+  (let ((sw (xlib:screen-width *screen*))
+        (sh (xlib:screen-height *screen*))
+        (w (xlib:drawable-width *curr*))
+        (h (xlib:drawable-height *curr*)))
     (memove *curr* (- (truncate sw 2) (truncate w 2))
             (- (truncate sh 2) (truncate h 2)) w h)))
 
@@ -292,8 +292,8 @@ convention."
 	(run program))))
 
 (defun send-message (window type &rest data)
-  (send-event window :client-message nil :window window
-                     :type type :format 32 :data data))
+  (xlib:send-event window :client-message nil :window window
+                          :type type :format 32 :data data))
 
 ;;; Apps in path
 (defun execp (pathname)
@@ -321,7 +321,7 @@ convention."
                        when (execp file) collect (file-namestring file)))))
 
 ;;; Modifier keypress avoidance code
-(defvar *mods-code* (multiple-value-call #'append (modifier-mapping *display*)))
+(defvar *mods-code* (multiple-value-call #'append (xlib:modifier-mapping *display*)))
 
 (defun is-modifier (keycode)
   "Return non-nil if keycode is a modifier"
@@ -336,12 +336,12 @@ convention."
 
 (defun one-char ()
   "Get one char from the user. The keyboard should be grabbed before call."
-  (event-case (*display*)
+  (xlib:event-case (*display*)
     (:key-press (state code)
                 (cond ((is-modifier code) (one-char))
                       ((sc= *abort* state code) 'abort)
                       ((sc= *this* state code) 'this)
-                      (t (keycode->character *display* code state))))))
+                      (t (xlib:keycode->character *display* code state))))))
 
 (defun pre-matcher (sofar)
   "Build a matcher to eliminate (with remove-if-not) strings that
@@ -376,18 +376,18 @@ don't contain `sofar'."
     (recdo-1 sofar list fn matcher key)))
 
 (defun app ()
-  (grab-keyboard *root*)
+  (xlib:grab-keyboard *root*)
   (unwind-protect (recdo *apps* #'run)
-    (ungrab-keyboard *display*)))
+    (xlib:ungrab-keyboard *display*)))
 
 (defun finder ()
-  (grab-keyboard *root*)
+  (xlib:grab-keyboard *root*)
   (unwind-protect (recdo *windows* #'focus :key #'xclass :matcher #'in-matcher)
-    (ungrab-keyboard *display*)))
+    (xlib:ungrab-keyboard *display*)))
 
 (defun banish ()
   "Banish mouse pointer."
-  (warp-pointer *root* (screen-width *screen*) (screen-height *screen*)))
+  (xlib:warp-pointer *root* (xlib:screen-width *screen*) (xlib:screen-height *screen*)))
 
 ;;; Default keyboard prefix and mouse shorcuts
 (defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
@@ -397,10 +397,10 @@ don't contain `sofar'."
 (defparameter *close* (compile-shortcut :control :mod-1 2) "Mouse button to close a window")
 
 (defun send-prefix (window)
-  (send-event window :key-press (make-event-mask :key-press)
-                     :window window
-                     :code (code *prefix*)
-                     :state (first (states *prefix*))))
+  (xlib:send-event window :key-press (xlib:make-event-mask :key-press)
+                          :window window
+                          :code (code *prefix*)
+                          :state (first (states *prefix*))))
 
 (defun grab-it (shortcut &key inverse-p)
   "Grab a given key or button shortcut in all its
@@ -409,10 +409,10 @@ states. Use :inverse-p key to ungrab."
     (if (< code 4)                      ;it's a mouse button
 	(if inverse-p
             (dolist (s (states shortcut))
-              (ungrab-button *root* code :modifiers s))
+              (xlib:ungrab-button *root* code :modifiers s))
             (dolist (s (states shortcut))
-              (grab-button *root* code '(:button-press) :modifiers s)))
-        (let ((grab/ungrab (if inverse-p #'ungrab-key #'grab-key)))
+              (xlib:grab-button *root* code '(:button-press) :modifiers s)))
+        (let ((grab/ungrab (if inverse-p #'xlib:ungrab-key #'xlib:grab-key)))
           (dolist (s (states shortcut))
             (funcall grab/ungrab *root* code :modifiers s))))))
 
@@ -441,15 +441,15 @@ states. Use :inverse-p key to ungrab."
 (defun grab-mouse (window event-mask)
   "Grab pointer with a cursor change that states that we're talking to
 the window manager."
-  (grab-pointer window event-mask :cursor *cursor*))
+  (xlib:grab-pointer window event-mask :cursor *cursor*))
 
-(defun ungrab-mouse () (ungrab-pointer *display*))
+(defun ungrab-mouse () (xlib:ungrab-pointer *display*))
 
 (defun load-rc ()
   (ungrab-all)
   (ignore-errors (load *rc*))
   (grab-all)
-  (display-finish-output *display*))
+  (xlib:display-finish-output *display*))
 
 ;;; Keyboard shortcuts
 (defshortcut (:shift #\r) (load-rc))
@@ -486,31 +486,31 @@ the window manager."
                         (t (let ((fn (cdr (assoc-if #'(lambda (sc) (sc= sc state code))
                                                     *shortcuts*))))
                              (when (functionp fn) (funcall fn)))))
-                  (ungrab-keyboard *display*)
+                  (xlib:ungrab-keyboard *display*)
                   (ungrab-mouse)
                   (setf waiting-shortcut nil))))
           ((sc= *prefix* state code)
-           (grab-keyboard *root*)
+           (xlib:grab-keyboard *root*)
            (grab-mouse *root* nil)
            (setf waiting-shortcut t)))))
 
 (defhandler :button-press (state code child x y)
-  (when (and child (eql (window-override-redirect child) :off)
+  (when (and child (eql (xlib:window-override-redirect child) :off)
              (null (let ((w (find child *windows* :test #'win=)))
-                     (when w (getf (window-plist w) 'original-dimension)))))
+                     (when w (getf (xlib:window-plist w) 'original-dimension)))))
     (cond ((sc= *close* state code)
-           (send-message child :WM_PROTOCOLS (intern-atom *display* :WM_DELETE_WINDOW)))
+           (send-message child :WM_PROTOCOLS (xlib:intern-atom *display* :WM_DELETE_WINDOW)))
 	  (t
 	   (cond ((sc= *move* state code)
 		  (setf last-x x last-y y))
 		 ((sc= *resize* state code)
 		  (multiple-value-bind (x y width height)
-		      (move child :width (drawable-width child)
-				  :height (drawable-height child))
+		      (move child :width (xlib:drawable-width child)
+				  :height (xlib:drawable-height child))
 		    ;; here i use [last-x; last-y] as the [x; y]
 		    ;; position of the current window
 		    (setf last-x x last-y y)
-		    (warp-pointer child width height))))
+		    (xlib:warp-pointer child width height))))
            (setf last-button code)
 	   (focus child)
 	   (grab-mouse child '(:pointer-motion :button-release))))))
@@ -551,7 +551,7 @@ the window manager."
 
 (defhandler :map-request (parent send-event-p window)
   (format t "~&map-request: ~a ~a ~a~%" parent send-event-p window)
-  (restart-case (map-window (plus window))
+  (restart-case (xlib:map-window (plus window))
     (window-error (c)
       (format t "~&map-request: ~a ~a~%" c window)
       'processed)
@@ -590,28 +590,28 @@ the window manager."
 (defrestart value-error)
 
 (defun evloop ()
-  (do () ((eql (process-event *display* :handler *handlers* :discard-p t) 'quit))))
+  (do () ((eql (xlib:process-event *display* :handler *handlers* :discard-p t) 'quit))))
 
 (defun main ()
   (load-rc)
 
   ;; Populate list of windows
-  (dolist (w (query-tree *root*))
-    (when (and (eql (window-map-state w) :viewable)
-               (eql (window-override-redirect w) :off))
+  (dolist (w (xlib:query-tree *root*))
+    (when (and (eql (xlib:window-map-state w) :viewable)
+               (eql (xlib:window-override-redirect w) :off))
       (plus w)))
 
-  (intern-atom *display* :_MOTIF_WM_HINTS)
-  (setf (window-event-mask *root*) '(:substructure-notify :substructure-redirect))
+  (xlib:intern-atom *display* :_MOTIF_WM_HINTS)
+  (setf (xlib:window-event-mask *root*) '(:substructure-notify :substructure-redirect))
 
   (setf *last* (setf *curr* (first *windows*)))
   (focus *curr*)
 
-  (unwind-protect (handler-bind ((window-error #'restart-window-error)
-                                 (value-error #'restart-value-error)
+  (unwind-protect (handler-bind ((xlib:window-error #'restart-window-error)
+                                 (xlib:value-error #'restart-value-error)
                                  (simple-error #'restart-simple-error))
                     (evloop))
     (ungrab-all)
-    (close-display *display*)))
+    (xlib:close-display *display*)))
 
 (main)
