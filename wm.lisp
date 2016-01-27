@@ -31,17 +31,18 @@
   #+clisp (length ext:*args*))
 
 (defun args (n)
-  "Return the n-th command line argument. 0 is the first argument."
+  "Return the n-th command line argument as a string. 0 is the first
+argument."
   (let ((args #+sbcl (rest sb-ext:*posix-argv*)
               #+clisp ext:*args*))
-    (read-from-string (elt args n))))
+    (elt args n)))
 
 ;;; Set screen geometry if provided on command line
 (cond ((= (argc) 1)
-       (setf (screen-height *screen*) (args 0)))
+       (setf (screen-height *screen*) (parse-integer (args 0))))
       ((= (argc) 2)
-       (setf (screen-height *screen*) (args 0)
-             (screen-width *screen*) (args 1))))
+       (setf (screen-height *screen*) (parse-integer (args 0))
+             (screen-width *screen*) (parse-integer (args 1)))))
 
 (defmacro with-gensyms (syms &body body)
   `(let ,(mapcar #'(lambda (s) `(,s (gensym))) syms)
