@@ -99,6 +99,13 @@ shortcut. Takes care of CapsLock and NumLock combination."
              (rplacd ,asc #',fn)
              (push (cons ,sc #',fn) *shortcuts*))))))
 
+(defun pinned-p (window) (getf (xlib:window-plist window) 'pinned))
+(defun pin (window) (setf (getf (xlib:window-plist window) 'pinned) t))
+(defun unpin (window) (remf (xlib:window-plist window) 'pinned))
+(defun toggle-pin ()
+  "Toggles the pin of the current window. A pinned window is unmovable."
+  (if (pinned-p *curr*) (unpin *curr*) (pin *curr*)))
+
 (defun correct-size (window &optional x y width height dx dy dw dh)
   "Correct a window's dimensions with its sizehints."
   (let ((hints (xlib:wm-normal-hints window)))
@@ -137,35 +144,22 @@ values."
     (when dx (incf x dx))
     (when dy (incf y dy))
     (when dw (let ((new-w (+ width dw)))
-	       (cond ((minusp new-w)
-		      (incf x new-w)
-		      (setf width (abs new-w)))
-		     (t (setf width new-w)))))
+               (cond ((minusp new-w)
+                      (incf x new-w)
+                      (setf width (abs new-w)))
+                     (t (setf width new-w)))))
     (when dh (let ((new-h (+ height dh)))
-	       (cond ((minusp new-h)
-		      (incf y new-h)
-		      (setf height (abs new-h)))
-		     (t (setf height new-h)))))
-    (xlib:with-state (window)
-      (setf (xlib:drawable-x window) x
-            (xlib:drawable-y window) y
-            (xlib:drawable-width window) width
-            (xlib:drawable-height window) height))
+               (cond ((minusp new-h)
+                      (incf y new-h)
+                      (setf height (abs new-h)))
+                     (t (setf height new-h)))))
+    (unless (pinned-p window)
+      (xlib:with-state (window)
+        (setf (xlib:drawable-x window) x
+              (xlib:drawable-y window) y
+              (xlib:drawable-width window) width
+              (xlib:drawable-height window) height)))
     (values x y width height dx dy dw dh)))
-
-(defun memove (window &optional x y w h)
-  "Memory Move a window (i.e. toggle between current position and the
-given one). Without a given new position reset position or does
-nothing."
-  (let ((dim (getf (xlib:window-plist window) 'original-dimension)))
-    (cond (dim
-           (apply #'move window dim)
-           (remf (xlib:window-plist window) 'original-dimension))
-          (t (when (and x y w h)
-               (setf (getf (xlib:window-plist window) 'original-dimension)
-                     (list :x (xlib:drawable-x window) :y (xlib:drawable-y window)
-                           :width (xlib:drawable-width window) :height (xlib:drawable-height window)))
-               (move window :x x :y y :width w :height h))))))
 
 (defun win= (a b)
   (and (typep a 'xlib:window) (typep b 'xlib:window) (xlib:window-equal a b)))
@@ -183,9 +177,6 @@ nothing."
 
 (defun focus (window)
   (unless (null window)
-    (unless (or (null *curr*)
-                (transient-for-p window *curr*))
-      (memove *curr*))
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
                     (sort (loop for w in *windows*
@@ -244,22 +235,21 @@ focused."
 (defun managed-p (window)
   (member window *windows* :test #'win=))
 
-(defun fullscreen (&key permanent-p)
-  "Toggle fullscreen the current window."
+(defun fullscreen (&key pinned-p)
+  "Set the current window fullscreen."
   (let ((sw (xlib:screen-width *screen*))
         (sh (xlib:screen-height *screen*)))
-    (if permanent-p
-        (move *curr* :x 0 :y 0 :width sw :height sh)
-        (memove *curr* 0 0 sw sh))))
+    (move *curr* :x 0 :y 0 :width sw :height sh)
+    (when pinned-p (pin *curr*))))
 
 (defun center ()
-  "Toggle center the current window."
+  "Center the current window."
   (let ((sw (xlib:screen-width *screen*))
         (sh (xlib:screen-height *screen*))
         (w (xlib:drawable-width *curr*))
         (h (xlib:drawable-height *curr*)))
-    (memove *curr* (- (truncate sw 2) (truncate w 2))
-            (- (truncate sh 2) (truncate h 2)) w h)))
+    (move *curr* :x (- (truncate sw 2) (truncate w 2))
+                 :y (- (truncate sh 2) (truncate h 2)))))
 
 (defun split-string (string &optional (character #\Space))
   "Returns a list of substrings of string
@@ -466,9 +456,10 @@ the window manager."
 (defshortcut (#\b) (banish))
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
-(defshortcut (:shift #\f) (fullscreen :permanent-p t))
+(defshortcut (:shift #\f) (fullscreen :pinned-p t))
 (defshortcut (#\.) (center))
 (defshortcut (:shift #\.) (center))
+(defshortcut (:shift #\p) (toggle-pin))
 
 (defvar last-button nil)
 (defvar last-x nil)
@@ -494,50 +485,51 @@ the window manager."
            (grab-mouse *root* nil)
            (setf waiting-shortcut t)))))
 
+;; In the two following handlers, the top `window' binding is required
+;; else we're using a fresh instance of window without its plist set
+;; for instance
 (defhandler :button-press (state code child x y)
-  (when (and child (eql (xlib:window-override-redirect child) :off)
-             (null (let ((w (find child *windows* :test #'win=)))
-                     (when w (getf (xlib:window-plist w) 'original-dimension)))))
-    (cond ((sc= *close* state code)
-           (send-message child :WM_PROTOCOLS (xlib:intern-atom *display* :WM_DELETE_WINDOW)))
-	  (t
-	   (cond ((sc= *move* state code)
-		  (setf last-x x last-y y))
-		 ((sc= *resize* state code)
-		  (multiple-value-bind (x y width height)
-		      (move child :width (xlib:drawable-width child)
-				  :height (xlib:drawable-height child))
-		    ;; here i use [last-x; last-y] as the [x; y]
-		    ;; position of the current window
-		    (setf last-x x last-y y)
-		    (xlib:warp-pointer child width height))))
-           (setf last-button code)
-	   (focus child)
-	   (grab-mouse child '(:pointer-motion :button-release))))))
+  (let ((window (find child *windows* :test #'win=)))
+    (when (and window (eql (xlib:window-override-redirect window) :off))
+      (cond ((sc= *close* state code)
+             (send-message window :WM_PROTOCOLS (xlib:intern-atom *display* :WM_DELETE_WINDOW)))
+            (t
+             (cond ((sc= *move* state code)
+                    (setf last-x x last-y y))
+                   ((sc= *resize* state code)
+                    (multiple-value-bind (x y width height) (move window)
+                      ;; here i use [last-x; last-y] as the [x; y]
+                      ;; position of the current window
+                      (setf last-x x last-y y)
+                      (xlib:warp-pointer window width height))))
+             (setf last-button code)
+             (focus window)
+             (grab-mouse window '(:pointer-motion :button-release)))))))
 
 (defhandler :motion-notify (event-window root-x root-y time)
-  (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
-    (let ((delta-x (- root-x last-x))
-	  (delta-y (- root-y last-y)))
-      (cond ((= last-button (code *move*))
-	     (multiple-value-bind (x y width height dx dy)
-		 (move event-window :dx delta-x :dy delta-y)
-	       (incf last-x dx)
-               (incf last-y dy)))
-	    ((= last-button (code *resize*))
-	     (let (pos)
-	       (if (plusp delta-x)
-		   (setf (getf pos :x) last-x
-			 (getf pos :width) delta-x)
-		   (setf (getf pos :x) (+ last-x delta-x)
-			 (getf pos :width) (abs delta-x)))
-	       (if (plusp delta-y)
-		   (setf (getf pos :y) last-y
-			 (getf pos :height) delta-y)
-		   (setf (getf pos :y) (+ last-y delta-y)
-			 (getf pos :height) (abs delta-y)))
-	       (apply #'move event-window pos)))))
-    (setf last-motion time)))
+  (let ((window (find event-window *windows* :test #'win=)))
+    (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
+      (let ((delta-x (- root-x last-x))
+            (delta-y (- root-y last-y)))
+        (cond ((= last-button (code *move*))
+               (multiple-value-bind (x y width height dx dy)
+                   (move window :dx delta-x :dy delta-y)
+                 (incf last-x dx)
+                 (incf last-y dy)))
+              ((= last-button (code *resize*))
+               (let (pos)
+                 (if (plusp delta-x)
+                     (setf (getf pos :x) last-x
+                           (getf pos :width) delta-x)
+                     (setf (getf pos :x) (+ last-x delta-x)
+                           (getf pos :width) (abs delta-x)))
+                 (if (plusp delta-y)
+                     (setf (getf pos :y) last-y
+                           (getf pos :height) delta-y)
+                     (setf (getf pos :y) (+ last-y delta-y)
+                           (getf pos :height) (abs delta-y)))
+                 (apply #'move window pos)))))
+      (setf last-motion time))))
 
 (defhandler :button-release () (ungrab-mouse))
 

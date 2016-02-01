@@ -66,6 +66,7 @@
    - =F= toggles the current window to fullscreen permanently;
    - =.= centers the current window (and revert as fullscreen);
    - =b= banish mouse pointer;
+   - =P= pin/unpin the current window;
    - =R= reloads the configuration file;
    - =Q= quits the window manager.
 ** Mouse
