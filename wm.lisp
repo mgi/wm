@@ -274,9 +274,10 @@ convention."
     #+sbcl (restart-case (sb-ext:run-program (first com) (rest com) :wait nil :search t)
                          (simple-error (c) (format t "~&Cannot execute ~s~%" (first com))))))
 
-(defun raise-or-run (program)
+(defun raise-or-run (program &optional class)
   "Raise (an existing window) or run a program."
-  (let ((win (find (x11-capitalize program) *windows* :test #'string-equal :key #'xclass)))
+  (let ((win (find (if class class (x11-capitalize program))
+                   *windows* :test #'string-equal :key #'xclass)))
     (if win
 	(focus win)
 	(run program))))
