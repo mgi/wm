@@ -446,7 +446,7 @@ the window manager."
 (defshortcut (:shift #\r) (load-rc))
 (defshortcut (#\c) (raise-or-run "xterm"))
 (defshortcut (:shift #\c) (run "xterm"))
-(defshortcut (#\e) (raise-or-run "emacs"))
+(defshortcut (#\e) (raise-or-run "emacsclient -c -a emacs" "Emacs"))
 (defshortcut (#\w) (raise-or-run "firefox"))
 (defshortcut (:control #\l) (run "xlock"))
 (defshortcut (#\n) (focus (next)))
