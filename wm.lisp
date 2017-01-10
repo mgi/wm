@@ -1,15 +1,10 @@
 ;;; Used to be the most simple window manager on earth. It started as
 ;;; a fork of the lisp version of tinywm.
 
-(load (merge-pathnames "prog/lisp/quicklisp/setup.lisp" (user-homedir-pathname)))
-
-;;; Load swank and make a server (not for clisp because i can't make
-;;; create-server return).
-#-clisp (ql:quickload :swank)
+;;; Make a swank server (not for clisp because i can't make
+;;; create-server to return).
 #-clisp (swank:create-server :port 4005 :dont-close t)
 
-;;; Load CLX and make a package
-(ql:quickload :clx)
 (defpackage :most.simple.wm
   (:use :common-lisp))
 (in-package :most.simple.wm)

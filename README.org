@@ -7,27 +7,28 @@
   - Just functionality: don't do anything fancy (text, icon, color or
     decoration) to avoid code clutter;
   - No [[http://standards.freedesktop.org/wm-spec/wm-spec-latest.html][EWMH]] as implementing this would bloat the code for little (if
-    any) improvements.
+    any) improvements for such a simple window manager.
 * Help
 ** Install
    - Install [[http://www.sbcl.org/][SBCL]] or [[http://www.clisp.org/][CLISP]] on your system (should be available via
      your system's packages);
-   - Install [[http://www.quicklisp.org/][quicklisp]];
-   - Tweak line 4 of wm.lisp to point to your quicklisp directory.
+   - Install [[http://www.quicklisp.org/][quicklisp]] (if you want to use the quicklisp launcher);
+   - Tweak first line of ql-launcher.lisp to point to your quicklisp directory.
 *** with SBCL
-    Append =sbcl --script <your path to>/wm.lisp [height [width]]= to
-    your .xinitrc or .xsession.
+    Append =sbcl --script <your path to>/ql-launcher.lisp [height
+    [width]]= to your .xinitrc or .xsession.
 *** with CLISP
-    Append =xhost local:local= and =clisp <your path to>/wm.lisp
-     [height [width]]= to your .xinitrc or .xsession.
+    Append =xhost local:local= and =clisp <your path
+     to>/ql-launcher.lisp [height [width]]= to your .xinitrc or
+     .xsession.
 
   Note: The optional height and width are used to determine the center
   and the fullscreen region
 ** Configuration
    You can adapt this window manager to suits your need with the
    =$HOME/.wm.lisp= configuration file. As this file is loaded at
-   startup almost anything can be done: you could probably rewrite
-   your own common lisp window manager from it.
+   startup almost anything can be done: you could rewrite your own
+   common lisp window manager from it.
 
    Here's an example:
 #+BEGIN_SRC lisp
@@ -49,7 +50,7 @@
    window. Hitting the prefix plus the character used by the prefix
    (e.g. =Control-t t=) sends the prefix chord to the current window.
 
-   Here is a list of the default keyboard shortcuts:
+   Default keyboard shortcuts:
    - =n= or =C-n= is next managed window;
    - =p= or =C-p= is previous managed window;
    - =c= raises or runs a xterm;
@@ -75,6 +76,6 @@
    - right button resize the window;
    - C-middle button close the window.
 ** Emacs
-   With SBCL, one of the first thing that wm.lisp does is to create a
-   swank server on port 4005. You can then connect Emacs/SLIME to it
-   (=M-x slime-connect=) and hack the window manager live.
+   With SBCL, wm.lisp creates a swank server on port 4005. You can
+   then connect Emacs/SLIME to it (=M-x slime-connect=) and hack the
+   window manager live.
