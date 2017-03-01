@@ -62,12 +62,13 @@
      app;
    - ='= is the class finder: works like the app launcher but fetch
      the first window of the given class;
-   - =f= toggles the current window to fullscreen (and revert
-     size/position when changing focus);
-   - =F= toggles the current window to fullscreen permanently;
-   - =.= centers the current window (and revert as fullscreen);
+   - =f= toggles the current window to fullscreen;
+   - =F= toggles to fullscreen and pins the current window;
+   - =/= centers the current window;
+   - =.= centers the current window permanently;
    - =b= banish mouse pointer;
    - =P= pin/unpin the current window;
+   - =W= clear any sticky position (centered or pinned);
    - =R= reloads the configuration file;
    - =Q= quits the window manager.
 ** Mouse

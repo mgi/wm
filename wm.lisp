@@ -251,6 +251,10 @@ focused."
                  :y (- (truncate sh 2) (truncate h 2)))
     (when stay-centered-p (on :centered *curr*))))
 
+(defun wash-sticky-position ()
+  (off :centered *curr*)
+  (off :pinned *curr*))
+
 (defun split-string (string &optional (character #\Space))
   "Returns a list of substrings of string
 divided by ONE space each.
@@ -458,9 +462,11 @@ the window manager."
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
 (defshortcut (:shift #\f) (fullscreen :pinned-p t))
-(defshortcut (#\.) (center))
+(defshortcut (#\/) (center))
+(defshortcut (#\.) (center :stay-centered-p t))
 (defshortcut (:shift #\.) (center :stay-centered-p t))
 (defshortcut (:shift #\p) (toggle :pinned *curr*))
+(defshortcut (:shift #\w) (wash-sticky-position))
 
 (defvar last-button nil)
 (defvar last-x nil)
@@ -513,8 +519,8 @@ the window manager."
       (let ((delta-x (- root-x last-x))
             (delta-y (- root-y last-y)))
         (cond ((= last-button (code *move*))
-               (multiple-value-bind (x y width height dx dy)
-                   (move window :dx delta-x :dy delta-y)
+               (multiple-value-bind (x y width height dx dy) (move window :dx delta-x :dy delta-y)
+		 (declare (ignore x y width height))
                  (incf last-x dx)
                  (incf last-y dy)))
               ((= last-button (code *resize*))
@@ -529,7 +535,8 @@ the window manager."
                            (getf pos :height) delta-y)
                      (setf (getf pos :y) (+ last-y delta-y)
                            (getf pos :height) (abs delta-y)))
-                 (apply #'move window pos)))))
+		 (multiple-value-bind (x y) (apply #'move window pos)
+		   (setf last-x x last-y y))))))
       (setf last-motion time))))
 
 (defhandler :button-release () (ungrab-mouse))
