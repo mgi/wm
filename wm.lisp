@@ -233,7 +233,7 @@ focused."
 
 (defun managed-p (window)
   "Return window from the managed windows list if it is here."
-  (car (member window *windows* :test #'win=)))
+  (find window *windows* :test #'win=))
 
 (defun fullscreen (&key pinned-p)
   "Set the current window fullscreen."
@@ -497,7 +497,7 @@ the window manager."
 ;; else we're using a fresh instance of window without its plist set
 ;; for instance
 (defhandler :button-press (state code child x y)
-  (let ((window (find child *windows* :test #'win=)))
+  (let ((window (managed-p child)))
     (when (and window (eql (xlib:window-override-redirect window) :off))
       (cond ((sc= *close* state code)
              (send-message window :WM_PROTOCOLS (xlib:intern-atom *display* :WM_DELETE_WINDOW)))
@@ -515,7 +515,7 @@ the window manager."
              (grab-mouse window '(:pointer-motion :button-release)))))))
 
 (defhandler :motion-notify (event-window root-x root-y time)
-  (let ((window (find event-window *windows* :test #'win=)))
+  (let ((window (managed-p event-window)))
     (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
       (let ((delta-x (- root-x last-x))
             (delta-y (- root-y last-y)))
