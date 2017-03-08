@@ -153,11 +153,10 @@ values."
 	(setf x (- (truncate sw 2) (truncate width 2))
 	      y (- (truncate sh 2) (truncate height 2)))))
     (unless (on-p :pinned window)
-      (xlib:with-state (window)
-	(setf (xlib:drawable-x window) x
-	      (xlib:drawable-y window) y
-	      (xlib:drawable-width window) width
-	      (xlib:drawable-height window) height)))
+      (setf (xlib:drawable-x window) x
+	    (xlib:drawable-y window) y
+	    (xlib:drawable-width window) width
+	    (xlib:drawable-height window) height))
     (values x y width height dx dy dw dh)))
 
 (defun win= (a b)
@@ -516,29 +515,30 @@ the window manager."
 
 (defhandler :motion-notify (event-window root-x root-y time)
   (let ((window (managed-p event-window)))
-    (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
-      (let ((delta-x (- root-x last-x))
-            (delta-y (- root-y last-y)))
-        (cond ((= last-button (code *move*))
-               (multiple-value-bind (x y width height dx dy) (move window :dx delta-x :dy delta-y)
-		 (declare (ignore x y width height))
-                 (incf last-x dx)
-                 (incf last-y dy)))
-              ((= last-button (code *resize*))
-               (let (pos)
-                 (if (plusp delta-x)
-                     (setf (getf pos :x) last-x
-                           (getf pos :width) delta-x)
-                     (setf (getf pos :x) (+ last-x delta-x)
-                           (getf pos :width) (abs delta-x)))
-                 (if (plusp delta-y)
-                     (setf (getf pos :y) last-y
-                           (getf pos :height) delta-y)
-                     (setf (getf pos :y) (+ last-y delta-y)
-                           (getf pos :height) (abs delta-y)))
-		 (multiple-value-bind (x y) (apply #'move window pos)
-		   (setf last-x x last-y y))))))
-      (setf last-motion time))))
+    (xlib:with-state (window)
+      (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
+	(let ((delta-x (- root-x last-x))
+	      (delta-y (- root-y last-y)))
+	  (cond ((= last-button (code *move*))
+		 (multiple-value-bind (x y width height dx dy) (move window :dx delta-x :dy delta-y)
+		   (declare (ignore x y width height))
+		   (incf last-x dx)
+		   (incf last-y dy)))
+		((= last-button (code *resize*))
+		 (let (pos)
+		   (if (plusp delta-x)
+		       (setf (getf pos :x) last-x
+			     (getf pos :width) delta-x)
+		       (setf (getf pos :x) (+ last-x delta-x)
+			     (getf pos :width) (abs delta-x)))
+		   (if (plusp delta-y)
+		       (setf (getf pos :y) last-y
+			     (getf pos :height) delta-y)
+		       (setf (getf pos :y) (+ last-y delta-y)
+			     (getf pos :height) (abs delta-y)))
+		   (multiple-value-bind (x y) (apply #'move window pos)
+		     (setf last-x x last-y y))))))
+	(setf last-motion time)))))
 
 (defhandler :button-release () (ungrab-mouse))
 
