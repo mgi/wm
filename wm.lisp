@@ -232,7 +232,8 @@ focused."
          *curr*)))
 
 (defun managed-p (window)
-  (member window *windows* :test #'win=))
+  "Return window from the managed windows list if it is here."
+  (car (member window *windows* :test #'win=)))
 
 (defun fullscreen (&key pinned-p)
   "Set the current window fullscreen."
@@ -543,7 +544,7 @@ the window manager."
 
 (defhandler :map-notify (window override-redirect-p)
   (unless override-redirect-p
-    (focus window)))
+    (focus (managed-p window))))
 
 (defhandler :unmap-notify (window)
   (when (managed-p window)
