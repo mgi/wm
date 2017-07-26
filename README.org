@@ -51,24 +51,27 @@
    (e.g. =Control-t t=) sends the prefix chord to the current window.
 
    Default keyboard shortcuts:
-   - =n= or =C-n= is next managed window;
-   - =p= or =C-p= is previous managed window;
+   - =n= or =Control-n= is next managed window;
+   - =p= or =Control-p= is previous managed window;
    - =c= raises or runs a xterm;
-   - =C= runs a new xterm;
+   - =Control-c= runs a new xterm;
    - =e= raises or run an emacs;
    - =w= raises or runs a web browser (defaults to [[https://www.mozilla.org/en-US/firefox/new/][firefox]]);
-   - =C-l= locks the screen with xlock;
-   - =a= is the app launcher: keys hit after will look for the correct
-     app;
+   - =Control-l= locks the screen with xlock;
+   - =a= is the app launcher: keys hit afterwards will look for the
+     correct app;
    - ='= is the class finder: works like the app launcher but fetch
      the first window of the given class;
    - =f= toggles the current window to fullscreen;
    - =F= toggles to fullscreen and pins the current window;
    - =/= centers the current window;
-   - =.= centers the current window permanently;
+   - =.= centers the current window and pin it in its center;
    - =b= banish mouse pointer;
-   - =P= pin/unpin the current window;
-   - =W= clear any sticky position (centered or pinned);
+   - =P= pin/unpin the current window (it won't be movable/resizable);
+   - =C= pin/unpin the current window in its center (it won't be
+     movable but will be resizable keeping its center at the same
+     position)
+   - =W= clear any sticky position (pinned or center-pinned);
    - =R= reloads the configuration file;
    - =Q= quits the window manager.
 ** Mouse

@@ -95,10 +95,10 @@ shortcut. Takes care of CapsLock and NumLock combination."
              (push (cons ,sc #',fn) *shortcuts*))))))
 
 (defun on-p (switch window) (getf (xlib:window-plist window) switch))
-(defun on (switch window) (setf (getf (xlib:window-plist window) switch) t))
+(defun on (switch window &optional (value t)) (setf (getf (xlib:window-plist window) switch) value))
 (defun off (switch window) (remf (xlib:window-plist window) switch))
-(defun toggle (switch window)
-  (if (on-p switch window) (off switch window) (on switch window)))
+(defun toggle (switch window &optional value)
+  (if (on-p switch window) (off switch window) (on switch window value)))
 
 (defun correct-size (window &optional x y width height dx dy dw dh)
   "Correct a window's dimensions with its sizehints."
@@ -147,11 +147,10 @@ values."
                       (incf y new-h)
                       (setf height (abs new-h)))
                      (t (setf height new-h)))))
-    (when (on-p :centered window)
-      (let ((sw (xlib:screen-width *screen*))
-	    (sh (xlib:screen-height *screen*)))
-	(setf x (- (truncate sw 2) (truncate width 2))
-	      y (- (truncate sh 2) (truncate height 2)))))
+    (let ((win-center (on-p :center-pinned window)))
+      (when win-center
+	  (setf x (- (first win-center) (truncate width 2))
+		y (- (second win-center) (truncate height 2)))))
     (unless (on-p :pinned window)
       (setf (xlib:drawable-x window) x
 	    (xlib:drawable-y window) y
@@ -241,7 +240,15 @@ focused."
     (move *curr* :x 0 :y 0 :width sw :height sh)
     (when pinned-p (on :pinned *curr*))))
 
-(defun center (&key stay-centered-p)
+(defun window-center (window)
+  (let ((x (xlib:drawable-x window))
+	(y (xlib:drawable-y window))
+	(width (xlib:drawable-width window))
+	(height (xlib:drawable-height window)))
+    (list (+ x (truncate width 2))
+	  (+ y (truncate height 2)))))
+
+(defun center (&key center-pinned-p)
   "Center the current window."
   (let ((sw (xlib:screen-width *screen*))
         (sh (xlib:screen-height *screen*))
@@ -249,10 +256,10 @@ focused."
         (h (xlib:drawable-height *curr*)))
     (move *curr* :x (- (truncate sw 2) (truncate w 2))
                  :y (- (truncate sh 2) (truncate h 2)))
-    (when stay-centered-p (on :centered *curr*))))
+    (when center-pinned-p (on :center-pinned *curr* (window-center *curr*)))))
 
 (defun wash-sticky-position ()
-  (off :centered *curr*)
+  (off :center-pinned *curr*)
   (off :pinned *curr*))
 
 (defun split-string (string &optional (character #\Space))
@@ -449,7 +456,7 @@ the window manager."
 ;;; Keyboard shortcuts
 (defshortcut (:shift #\r) (load-rc))
 (defshortcut (#\c) (raise-or-run "xterm"))
-(defshortcut (:shift #\c) (run "xterm"))
+(defshortcut (:control #\c) (run "xterm"))
 (defshortcut (#\e) (raise-or-run "emacsclient -c -a emacs" "Emacs"))
 (defshortcut (#\w) (raise-or-run "firefox"))
 (defshortcut (:control #\l) (run "xlock"))
@@ -463,9 +470,10 @@ the window manager."
 (defshortcut (#\f) (fullscreen))
 (defshortcut (:shift #\f) (fullscreen :pinned-p t))
 (defshortcut (#\/) (center))
-(defshortcut (#\.) (center :stay-centered-p t))
-(defshortcut (:shift #\.) (center :stay-centered-p t))
+(defshortcut (#\.) (center :center-pinned-p t))
+(defshortcut (:shift #\.) (center :center-pinned-p t))
 (defshortcut (:shift #\p) (toggle :pinned *curr*))
+(defshortcut (:shift #\c) (toggle :center-pinned *curr* (window-center *curr*)))
 (defshortcut (:shift #\w) (wash-sticky-position))
 
 (defvar last-button nil)
