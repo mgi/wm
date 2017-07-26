@@ -44,10 +44,11 @@ argument."
      ,@body))
 
 (defmacro defhandler (event keys &body body)
-  (with-gensyms (fn-name event-slots)
+  (let ((fn-name (gensym (symbol-name event)))
+	(event-slots (gensym)))
     `(labels ((,fn-name (&rest ,event-slots &key ,@keys &allow-other-keys)
-                (declare (ignore ,event-slots))
-                ,@body))
+		(declare (ignore ,event-slots))
+		,@body))
        (setf (elt *handlers* (position ,event xlib::*event-key-vector*)) #',fn-name))))
 
 (defun xclass (window) (multiple-value-bind (name class)
