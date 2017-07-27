@@ -167,14 +167,20 @@ values."
   (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
 		(window-error (c) nil))))
 
-(defun transient-for-p (transient parent)
-  (let ((pid (xlib:window-id parent)))
-    (unless (= (xlib:window-id transient) pid)
-      (loop for id in (xlib:get-property transient :WM_TRANSIENT_FOR)
-	 thereis (= id pid)))))
+(defun head-of-transient (window)
+  (loop for id in (xlib:get-property window :WM_TRANSIENT_FOR)
+	collect (find id *windows* :key #'xlib:window-id)))
+
+(defun transient-of (window)
+  (loop for w in *windows*
+	when (loop for id in (xlib:get-property w :WM_TRANSIENT_FOR)
+		     thereis (= id (xlib:window-id window)))
+	  collect w))
 
 (defun focus (window)
-  (unless (null window)
+  (unless (or (null window)
+	      (win= window *curr*))
+    (mapc #'focus (head-of-transient window))
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
                     (sort (loop for w in *windows*
@@ -190,7 +196,8 @@ values."
                (setf *last* *curr*
                      *curr* window))
              (xlib:set-input-focus *display* window :pointer-root)))
-      (setf (xlib:window-priority window) :above))))
+      (setf (xlib:window-priority window) :above))
+    (mapc #'focus (transient-of window))))
 
 (defun next (&optional (way #'1+))
   (let* ((grouper (grouper *curr*))
