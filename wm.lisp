@@ -203,25 +203,14 @@ values."
     (unless (zerop n)
       (nth (mod (funcall way nw) n) windows))))
 
-(defun insert-by-group (window lst)
-  "Insert window in the given window list respecting group affinity."
-  (cond ((null lst) (list window))
-        ((member window lst :test #'win=) lst)
-        (t (let ((grouper (grouper window))
-                 (w (car lst)))
-             (if (and (functionp grouper)
-                      (funcall grouper w))
-                 (cons window lst)
-                 (cons w (insert-by-group window (cdr lst))))))))
-
 (defun plus (window)
   "Add window to the list of managed windows."
-  (setf *windows* (insert-by-group window *windows*))
+  (pushnew window *windows* :test #'win=)
   window)
 
 (defun minus (window)
-  "House keeping when window is unmapped. Returns the window to be
-focused."
+  "House keeping when window is removed from managed windows. Returns
+the window to be focused."
   (setf *windows* (remove window *windows* :test #'win=))
   (cond ((null *windows*) (setf *curr* nil *last* nil))
         (:otherwise
