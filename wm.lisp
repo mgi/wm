@@ -53,9 +53,7 @@ argument."
 
 (defun xclass (window) (multiple-value-bind (name class)
                            (restart-case (xlib:get-wm-class window)
-                             (window-error (c)
-                               (format t "~&No class on ~a~%" window)
-                               (values "" "I'm dead")))
+                             (window-error (c) (values "" "I'm probably dead")))
                          class))
 
 (defparameter *groupers* (list
@@ -168,10 +166,12 @@ values."
 		(window-error (c) nil))))
 
 (defun get-transients-of (window)
-  (loop for w in (xlib:query-tree *root*)
-	nconc (loop for id in (xlib:get-property w :WM_TRANSIENT_FOR)
-		    when (= id (xlib:window-id window))
-		      collect w)))
+  (restart-case
+      (loop for w in (xlib:query-tree *root*)
+	    nconc (loop for id in (xlib:get-property w :WM_TRANSIENT_FOR)
+			when (= id (xlib:window-id window))
+			  collect w))
+    (window-error (c) nil)))
 
 (defun %focus (window)
   "Low level focus for *one* managed window."
