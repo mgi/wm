@@ -1,5 +1,5 @@
 * Goals
-  Here is a set of goals for this window manager:
+  Here is the set of goals for this window manager:
 
   - Common Lisp;
   - Simple and easy to maintain code;
@@ -13,7 +13,8 @@
    - Install [[http://www.sbcl.org/][SBCL]] or [[http://www.clisp.org/][CLISP]] on your system (should be available via
      your system's packages);
    - Install [[http://www.quicklisp.org/][quicklisp]] (if you want to use the quicklisp launcher);
-   - Tweak first line of ql-launcher.lisp to point to your quicklisp directory.
+   - Tweak the first line of =ql-launcher.lisp= to point to your
+     quicklisp directory.
 *** with SBCL
     Append =sbcl --script <your path to>/ql-launcher.lisp [height
     [width]]= to your .xinitrc or .xsession.
