@@ -566,7 +566,6 @@ the window manager."
     (focus (minus window))))
 
 (defhandler :map-request (parent send-event-p window)
-  (format t "~&map-request: ~a ~a ~a~%" parent send-event-p window)
   (restart-case (xlib:map-window (plus window))
     (window-error (c)
       (format t "~&map-request: ~a ~a~%" c window)
@@ -583,7 +582,6 @@ the window manager."
 				   (1 (list :y y))
 				   (2 (list :width width))
 				   (3 (list :height height))))))
-    (format t "~&configure-request: ~a ~a ~@[~s~]~%" window value-mask list-mask)
     (xlib:with-state (window)
       (restart-case (when list-mask (apply #'move window list-mask))
 	(window-error (c)
