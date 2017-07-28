@@ -239,7 +239,8 @@ the window to be focused."
   "Set the current window fullscreen."
   (let ((sw (xlib:screen-width *screen*))
         (sh (xlib:screen-height *screen*)))
-    (move *curr* :x 0 :y 0 :width sw :height sh)
+    (xlib:with-state (*curr*)
+      (move *curr* :x 0 :y 0 :width sw :height sh))
     (when pinned-p (on :pinned *curr*))))
 
 (defun window-center (window)
@@ -256,8 +257,9 @@ the window to be focused."
         (sh (xlib:screen-height *screen*))
         (w (xlib:drawable-width *curr*))
         (h (xlib:drawable-height *curr*)))
-    (move *curr* :x (- (truncate sw 2) (truncate w 2))
-                 :y (- (truncate sh 2) (truncate h 2)))
+    (xlib:with-state (*curr*)
+      (move *curr* :x (- (truncate sw 2) (truncate w 2))
+		   :y (- (truncate sh 2) (truncate h 2))))
     (when center-pinned-p (on :center-pinned *curr* (window-center *curr*)))))
 
 (defun wash-sticky-position ()
@@ -582,13 +584,14 @@ the window manager."
 				   (2 (list :width width))
 				   (3 (list :height height))))))
     (format t "~&configure-request: ~a ~a ~@[~s~]~%" window value-mask list-mask)
-    (restart-case (when list-mask (apply #'move window list-mask))
-      (window-error (c)
-	(format t "~&configure-request: ~a ~a~%" c window)
-	'processed)
-      (value-error (c)
-	(format t "~&configure-request: ~a ~a~%" c window)
-	'processed))))
+    (xlib:with-state (window)
+      (restart-case (when list-mask (apply #'move window list-mask))
+	(window-error (c)
+	  (format t "~&configure-request: ~a ~a~%" c window)
+	  'processed)
+	(value-error (c)
+	  (format t "~&configure-request: ~a ~a~%" c window)
+	  'processed)))))
 
 ;; Restart functions
 (defmacro defrestart (name)
