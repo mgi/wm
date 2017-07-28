@@ -209,10 +209,14 @@ values."
     (unless (zerop n)
       (nth (mod (funcall way nw) n) windows))))
 
+(defun transient-for-managed-p (window)
+  (loop for id in (xlib:get-property window :WM_TRANSIENT_FOR)
+	  thereis (find id *windows* :key #'xlib:window-id)))
+
 (defun plus (window)
   "Add window to the list of managed windows."
   (unless (or (eql (xlib:window-override-redirect window) :on)
-	      (xlib:get-property window :WM_TRANSIENT_FOR))
+	      (transient-for-managed-p window))
     (pushnew window *windows* :test #'win=))
   window)
 
