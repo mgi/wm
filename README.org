@@ -79,7 +79,7 @@
    =Meta= (or =Alt=) is the prefix for the mouse.
    - left button moves the window;
    - right button resize the window;
-   - C-middle button close the window.
+   - Control-Shift-middle button close the window.
 ** Emacs
    With SBCL, wm.lisp creates a swank server on port 4005. You can
    then connect Emacs/SLIME to it (=M-x slime-connect=) and hack the

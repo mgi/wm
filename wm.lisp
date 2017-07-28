@@ -400,7 +400,7 @@ don't contain `sofar'."
 (defparameter *quit* (compile-shortcut :shift #\q) "Shortcut to quit")
 (defparameter *move* (compile-shortcut :mod-1 1) "Mouse button to move a window")
 (defparameter *resize* (compile-shortcut :mod-1 3) "Mouse button to resize a window")
-(defparameter *close* (compile-shortcut :control :mod-1 2) "Mouse button to close a window")
+(defparameter *close* (compile-shortcut :mod-1 :control :shift 2) "Mouse button to close a window")
 
 (defun send-prefix (window)
   (xlib:send-event window :key-press (xlib:make-event-mask :key-press)
