@@ -566,22 +566,22 @@ the window manager."
       (format t "~&map-request: ~a ~a~%" c window)
       'processed)))
 
-(defhandler :configure-request (stack-mode window x y width height border-width value-mask)
+(defhandler :configure-request (window x y width height value-mask)
   (let ((list-mask (loop for i below 4
-                         when (= (ldb (byte 1 i) value-mask) 1)
-                           nconc (case i
-                                   (0 (list :x x))
-                                   (1 (list :y y))
-                                   (2 (list :width width))
-                                   (3 (list :height height))))))
-    (format t "~&configure-request: ~a ~a ~s~%" window value-mask list-mask)
+			 when (= (ldb (byte 1 i) value-mask) 1)
+			   nconc (case i
+				   (0 (list :x x))
+				   (1 (list :y y))
+				   (2 (list :width width))
+				   (3 (list :height height))))))
+    (format t "~&configure-request: ~a ~a ~@[~s~]~%" window value-mask list-mask)
     (restart-case (when list-mask (apply #'move window list-mask))
       (window-error (c)
-        (format t "~&configure-request: ~a ~a~%" c window)
-        'processed)
+	(format t "~&configure-request: ~a ~a~%" c window)
+	'processed)
       (value-error (c)
-        (format t "~&configure-request: ~a ~a~%" c window)
-        'processed))))
+	(format t "~&configure-request: ~a ~a~%" c window)
+	'processed))))
 
 ;; Restart functions
 (defmacro defrestart (name)
