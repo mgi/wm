@@ -514,11 +514,14 @@ the window manager."
              (cond ((sc= *move* state code)
                     (setf last-x x last-y y))
                    ((sc= *resize* state code)
-                    (multiple-value-bind (x y width height) (move window)
-                      ;; here i use [last-x; last-y] as the [x; y]
-                      ;; position of the current window
-                      (setf last-x x last-y y)
-                      (xlib:warp-pointer window width height))))
+		    (let ((x (xlib:drawable-x window))
+			  (y (xlib:drawable-y window))
+			  (width (xlib:drawable-width window))
+			  (height (xlib:drawable-height window)))
+		      ;; here i use [last-x; last-y] as the [x; y]
+		      ;; position of the current window
+		      (setf last-x x last-y y)
+		      (xlib:warp-pointer window width height))))
              (setf last-button code)
              (focus window)
              (grab-mouse window '(:pointer-motion :button-release)))))))
