@@ -167,20 +167,20 @@ values."
   (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
 		(window-error (c) nil))))
 
-(defun head-of-transient (window)
-  (loop for id in (xlib:get-property window :WM_TRANSIENT_FOR)
-	collect (find id *windows* :key #'xlib:window-id)))
+(defun get-transients-of (window)
+  (loop for w in (xlib:query-tree *root*)
+	nconc (loop for id in (xlib:get-property w :WM_TRANSIENT_FOR)
+		    when (= id (xlib:window-id window))
+		      collect w)))
 
-(defun transient-of (window)
-  (loop for w in *windows*
-	when (loop for id in (xlib:get-property w :WM_TRANSIENT_FOR)
-		     thereis (= id (xlib:window-id window)))
-	  collect w))
+(defun %focus (window)
+  "Low level focus for *one* managed window."
+  (setf (xlib:window-priority window) :above)
+  (dolist (w (get-transients-of window))
+    (setf (xlib:window-priority w) :above)))
 
 (defun focus (window)
-  (unless (or (null window)
-	      (win= window *curr*))
-    (mapc #'focus (head-of-transient window))
+  (unless (or (null window))
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
                     (sort (loop for w in *windows*
@@ -189,15 +189,14 @@ values."
              (unless (member *curr* group :test #'win=)
                (setf *last* *curr*
                      *curr* (first group)))
-             (dolist (w group) (setf (xlib:window-priority w) :above))
+             (dolist (w group) (%focus w))
              (xlib:set-input-focus *display* :pointer-root :pointer-root))
             (t
              (unless (win= *curr* window)
                (setf *last* *curr*
                      *curr* window))
              (xlib:set-input-focus *display* window :pointer-root)))
-      (setf (xlib:window-priority window) :above))
-    (mapc #'focus (transient-of window))))
+      (%focus window))))
 
 (defun next (&optional (way #'1+))
   (let* ((grouper (grouper *curr*))
@@ -212,7 +211,9 @@ values."
 
 (defun plus (window)
   "Add window to the list of managed windows."
-  (pushnew window *windows* :test #'win=)
+  (unless (or (eql (xlib:window-override-redirect window) :on)
+	      (xlib:get-property window :WM_TRANSIENT_FOR))
+    (pushnew window *windows* :test #'win=))
   window)
 
 (defun minus (window)
@@ -601,10 +602,9 @@ the window manager."
 (defun main ()
   (load-rc)
 
-  ;; Populate list of windows
+  ;; Populate list of windows with already mapped windows
   (dolist (w (xlib:query-tree *root*))
-    (when (and (eql (xlib:window-map-state w) :viewable)
-               (eql (xlib:window-override-redirect w) :off))
+    (when (eql (xlib:window-map-state w) :viewable)
       (plus w)))
 
   (xlib:intern-atom *display* :_MOTIF_WM_HINTS)
