@@ -540,19 +540,7 @@ the window manager."
 		   (incf last-x dx)
 		   (incf last-y dy)))
 		((= last-button (code *resize*))
-		 (let (pos)
-		   (if (plusp delta-x)
-		       (setf (getf pos :x) last-x
-			     (getf pos :width) delta-x)
-		       (setf (getf pos :x) (+ last-x delta-x)
-			     (getf pos :width) (abs delta-x)))
-		   (if (plusp delta-y)
-		       (setf (getf pos :y) last-y
-			     (getf pos :height) delta-y)
-		       (setf (getf pos :y) (+ last-y delta-y)
-			     (getf pos :height) (abs delta-y)))
-		   (multiple-value-bind (x y) (apply #'move window pos)
-		     (setf last-x x last-y y))))))
+		 (move window :width delta-x :height delta-y))))
 	(setf last-motion time)))))
 
 (defhandler :button-release () (ungrab-mouse))
