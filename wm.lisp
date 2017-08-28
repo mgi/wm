@@ -399,6 +399,7 @@ don't contain `sofar'."
 (defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
 (defparameter *quit* (compile-shortcut :shift #\q) "Shortcut to quit")
 (defparameter *move* (compile-shortcut :mod-1 1) "Mouse button to move a window")
+(defparameter *center-resize* (compile-shortcut :mod-1 2) "Mouse button to resize a window from its center")
 (defparameter *resize* (compile-shortcut :mod-1 3) "Mouse button to resize a window")
 (defparameter *close* (compile-shortcut :mod-1 :control :shift 2) "Mouse button to close a window")
 
@@ -425,11 +426,11 @@ states. Use :inverse-p key to ungrab."
 (defun grab-all ()
   "Grab prefix and mouse buttons on root."
   (grab-it *prefix*)
-  (dolist (b (list *move* *resize* *close*))
+  (dolist (b (list *move* *center-resize* *resize* *close*))
     (grab-it b)))
 
 (defun ungrab-all ()
-  (dolist (b (list *move* *resize* *close*))
+  (dolist (b (list *move* *center-resize* *resize* *close*))
     (grab-it b :inverse-p t))
   (grab-it *prefix* :inverse-p t))
 
@@ -483,6 +484,7 @@ the window manager."
 (defvar last-button nil)
 (defvar last-x nil)
 (defvar last-y nil)
+(defvar last-center nil)
 (defvar last-motion nil)
 (defvar waiting-shortcut nil)
 
@@ -515,14 +517,16 @@ the window manager."
             (t
              (cond ((sc= *move* state code)
                     (setf last-x x last-y y))
-                   ((sc= *resize* state code)
+                   ((or (sc= *resize* state code)
+			(sc= *center-resize* state code))
 		    (let ((x (xlib:drawable-x window))
 			  (y (xlib:drawable-y window))
 			  (width (xlib:drawable-width window))
 			  (height (xlib:drawable-height window)))
 		      ;; here i use [last-x; last-y] as the [x; y]
 		      ;; position of the current window
-		      (setf last-x x last-y y)
+		      (setf last-x x last-y y
+			    last-center (window-center window))
 		      (xlib:warp-pointer window width height))))
              (setf last-button code)
              (focus window)
@@ -540,7 +544,11 @@ the window manager."
 		   (incf last-x dx)
 		   (incf last-y dy)))
 		((= last-button (code *resize*))
-		 (move window :width delta-x :height delta-y))))
+		 (move window :width delta-x :height delta-y))
+		((= last-button (code *center-resize*))
+		 (move window :x (- (first last-center) (truncate delta-x 2))
+			      :y (- (second last-center) (truncate delta-y 2))
+			      :width delta-x :height delta-y))))
 	(setf last-motion time)))))
 
 (defhandler :button-release () (ungrab-mouse))
