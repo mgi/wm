@@ -78,7 +78,7 @@ shortcut. Takes care of CapsLock and NumLock combination."
           (make-shortcut :states states :code code))
         (make-shortcut :states states :code k))))
 
-(defun sc= (sc state code) (and (= (code sc) code) (member state (states sc))))
+(defun sc= (sc state code) (and (code sc) (= (code sc) code) (member state (states sc))))
 (defun sc-equal (sc1 sc2) (equalp sc1 sc2))
 
 (defmacro defshortcut (key &body body)
