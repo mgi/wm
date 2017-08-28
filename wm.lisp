@@ -601,6 +601,7 @@ the window manager."
              (invoke-restart ,restart ,c)))))))
 
 (defrestart window-error)
+(defrestart drawable-error)
 (defrestart simple-error)
 (defrestart value-error)
 
@@ -622,6 +623,7 @@ the window manager."
   (focus *curr*)
 
   (unwind-protect (handler-bind ((xlib:window-error #'restart-window-error)
+				 (xlib:drawable-error #'restart-drawable-error)
                                  (xlib:value-error #'restart-value-error)
                                  (simple-error #'restart-simple-error))
                     (evloop))
