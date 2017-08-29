@@ -65,13 +65,9 @@
      the first window of the given class;
    - =f= toggles the current window to fullscreen;
    - =F= toggles to fullscreen and pins the current window;
-   - =/= centers the current window;
-   - =.= centers the current window and pin it in its center;
+   - =.= centers the current window;
    - =b= banish mouse pointer;
    - =P= pin/unpin the current window (it won't be movable/resizable);
-   - =C= pin/unpin the current window in its center (it won't be
-     movable but will be resizable keeping its center at the same
-     position)
    - =W= clear any sticky position (pinned or center-pinned);
    - =R= reloads the configuration file;
    - =Q= quits the window manager.
@@ -79,6 +75,7 @@
    =Meta= (or =Alt=) is the prefix for the mouse.
    - left button moves the window;
    - right button resize the window;
+   - middle button resize the window maintaining its center position;
    - Control-Shift-middle button close the window.
 ** Emacs
    With SBCL, wm.lisp creates a swank server on port 4005. You can

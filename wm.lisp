@@ -146,10 +146,6 @@ values."
                       (incf y new-h)
                       (setf height (abs new-h)))
                      (t (setf height new-h)))))
-    (let ((win-center (on-p :center-pinned window)))
-      (when win-center
-	  (setf x (- (first win-center) (truncate width 2))
-		y (- (second win-center) (truncate height 2)))))
     (unless (on-p :pinned window)
       (setf (xlib:drawable-x window) x
 	    (xlib:drawable-y window) y
@@ -251,7 +247,7 @@ the window to be focused."
     (list (+ x (truncate width 2))
 	  (+ y (truncate height 2)))))
 
-(defun center (&key center-pinned-p)
+(defun center ()
   "Center the current window."
   (let ((sw (xlib:screen-width *screen*))
         (sh (xlib:screen-height *screen*))
@@ -259,11 +255,9 @@ the window to be focused."
         (h (xlib:drawable-height *curr*)))
     (xlib:with-state (*curr*)
       (move *curr* :x (- (truncate sw 2) (truncate w 2))
-		   :y (- (truncate sh 2) (truncate h 2))))
-    (when center-pinned-p (on :center-pinned *curr* (window-center *curr*)))))
+		   :y (- (truncate sh 2) (truncate h 2))))))
 
 (defun wash-sticky-position ()
-  (off :center-pinned *curr*)
   (off :pinned *curr*))
 
 (defun split-string (string &optional (character #\Space))
@@ -474,11 +468,9 @@ the window manager."
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
 (defshortcut (:shift #\f) (fullscreen :pinned-p t))
-(defshortcut (#\/) (center))
-(defshortcut (#\.) (center :center-pinned-p t))
-(defshortcut (:shift #\.) (center :center-pinned-p t))
+(defshortcut (#\.) (center))
+(defshortcut (:shift #\.) (center))
 (defshortcut (:shift #\p) (toggle :pinned *curr*))
-(defshortcut (:shift #\c) (toggle :center-pinned *curr* (window-center *curr*)))
 (defshortcut (:shift #\w) (wash-sticky-position))
 
 (defvar last-button nil)
