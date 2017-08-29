@@ -93,11 +93,11 @@ shortcut. Takes care of CapsLock and NumLock combination."
              (rplacd ,asc #',fn)
              (push (cons ,sc #',fn) *shortcuts*))))))
 
-(defun on-p (switch window) (getf (xlib:window-plist window) switch))
-(defun on (switch window &optional (value t)) (setf (getf (xlib:window-plist window) switch) value))
-(defun off (switch window) (remf (xlib:window-plist window) switch))
-(defun toggle (switch window &optional value)
-  (if (on-p switch window) (off switch window) (on switch window value)))
+(defun pinned-p (window) (getf (xlib:window-plist window) :pinned))
+(defun pin (window) (setf (getf (xlib:window-plist window) :pinned) t))
+(defun unpin (window) (remf (xlib:window-plist window) :pinned))
+(defun toggle-pin ()
+  (if (pinned-p *curr*) (unpin *curr*) (pin *curr*)))
 
 (defun correct-size (window &optional x y width height dx dy dw dh)
   "Correct a window's dimensions with its sizehints."
@@ -146,7 +146,7 @@ values."
                       (incf y new-h)
                       (setf height (abs new-h)))
                      (t (setf height new-h)))))
-    (unless (on-p :pinned window)
+    (unless (pinned-p window)
       (setf (xlib:drawable-x window) x
 	    (xlib:drawable-y window) y
 	    (xlib:drawable-width window) width
@@ -237,7 +237,7 @@ the window to be focused."
         (sh (xlib:screen-height *screen*)))
     (xlib:with-state (*curr*)
       (move *curr* :x 0 :y 0 :width sw :height sh))
-    (when pinned-p (on :pinned *curr*))))
+    (when pinned-p (pin *curr*))))
 
 (defun window-center (window)
   (let ((x (xlib:drawable-x window))
@@ -258,7 +258,7 @@ the window to be focused."
 		   :y (- (truncate sh 2) (truncate h 2))))))
 
 (defun wash-sticky-position ()
-  (off :pinned *curr*))
+  (unpin *curr*))
 
 (defun split-string (string &optional (character #\Space))
   "Returns a list of substrings of string
@@ -470,7 +470,7 @@ the window manager."
 (defshortcut (:shift #\f) (fullscreen :pinned-p t))
 (defshortcut (#\.) (center))
 (defshortcut (:shift #\.) (center))
-(defshortcut (:shift #\p) (toggle :pinned *curr*))
+(defshortcut (:shift #\p) (toggle-pin))
 (defshortcut (:shift #\w) (wash-sticky-position))
 
 (defvar last-button nil)
