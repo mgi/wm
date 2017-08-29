@@ -519,7 +519,7 @@ the window manager."
 		      ;; position of the current window
 		      (setf last-x x last-y y
 			    last-center (window-center window))
-		      (xlib:warp-pointer window width height))))
+		      (unless (pinned-p window) (xlib:warp-pointer window width height)))))
              (setf last-button code)
              (focus window)
              (grab-mouse window '(:pointer-motion :button-release)))))))
