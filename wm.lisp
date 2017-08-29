@@ -476,7 +476,6 @@ the window manager."
 (defvar last-button nil)
 (defvar last-x nil)
 (defvar last-y nil)
-(defvar last-center nil)
 (defvar last-motion nil)
 (defvar waiting-shortcut nil)
 
@@ -509,17 +508,18 @@ the window manager."
             (t
              (cond ((sc= *move* state code)
                     (setf last-x x last-y y))
-                   ((or (sc= *resize* state code)
-			(sc= *center-resize* state code))
+		   ((sc= *resize* state code)
 		    (let ((x (xlib:drawable-x window))
 			  (y (xlib:drawable-y window))
 			  (width (xlib:drawable-width window))
 			  (height (xlib:drawable-height window)))
 		      ;; here i use [last-x; last-y] as the [x; y]
 		      ;; position of the current window
-		      (setf last-x x last-y y
-			    last-center (window-center window))
-		      (unless (pinned-p window) (xlib:warp-pointer window width height)))))
+		      (setf last-x x last-y y)
+		      (unless (pinned-p window)
+			(xlib:warp-pointer window width height))))
+                   ((sc= *center-resize* state code)
+		    (setf last-x x last-y y)))
              (setf last-button code)
              (focus window)
              (grab-mouse window '(:pointer-motion :button-release)))))))
@@ -538,9 +538,19 @@ the window manager."
 		((= last-button (code *resize*))
 		 (move window :width delta-x :height delta-y))
 		((= last-button (code *center-resize*))
-		 (move window :x (- (first last-center) (truncate delta-x 2))
-			      :y (- (second last-center) (truncate delta-y 2))
-			      :width delta-x :height delta-y))))
+		 ;; In order to take size-hints into account, we need
+		 ;; to first move the window (x,y) and then, in a
+		 ;; second time, wide/narrow the window
+		 (let* ((move-1 (multiple-value-list (move window :dx (- delta-x)
+								  :dy (- delta-y))))
+			(dx (nth 4 move-1))
+			(dy (nth 5 move-1))
+			(move-2 (multiple-value-list (move window :dw (* 2 (- dx))
+								  :dh (* 2 (- dy)))))
+			(dw (nth 6 move-2))
+			(dh (nth 7 move-2)))
+		   (incf last-x (truncate (- dw dx) 2))
+		   (incf last-y (truncate (- dh dy) 2))))))
 	(setf last-motion time)))))
 
 (defhandler :button-release () (ungrab-mouse))
