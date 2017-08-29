@@ -99,7 +99,7 @@ shortcut. Takes care of CapsLock and NumLock combination."
 (defun toggle-pin ()
   (if (pinned-p *curr*) (unpin *curr*) (pin *curr*)))
 
-(defun correct-size (window &optional x y width height dx dy dw dh)
+(defun correct-size (window x y width height dx dy dw dh)
   "Correct a window's dimensions with its sizehints."
   (let ((hints (xlib:wm-normal-hints window)))
     (when hints (let* ((min-w (or (xlib:wm-size-hints-min-width hints) 1))
