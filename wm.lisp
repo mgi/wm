@@ -191,8 +191,8 @@ values."
              (unless (win= *curr* window)
                (setf *last* *curr*
                      *curr* window))
-	     (%focus window)
-             (xlib:set-input-focus *display* window :pointer-root))))))
+             (xlib:set-input-focus *display* window :pointer-root)))
+      (%focus window))))
 
 (defun next (&optional (way #'1+))
   (let* ((grouper (grouper *curr*))
