@@ -39,10 +39,6 @@ argument."
        (setf (xlib:screen-height *screen*) (parse-integer (args 0))
              (xlib:screen-width *screen*) (parse-integer (args 1)))))
 
-(defun randr-p ()
-  (and (fboundp 'xlib:rr-query-version)
-       (xlib:rr-query-version *display*)))
-
 (defmacro with-gensyms (syms &body body)
   `(let ,(mapcar #'(lambda (s) `(,s (gensym))) syms)
      ,@body))
@@ -593,10 +589,19 @@ the window manager."
 	  (format t "~&configure-request: ~a ~a~%" c window)
 	  'processed)))))
 
-(when (randr-p)
-  (defhandler :rr-screen-change-notify (width height)
-    (setf (xlib:screen-width *screen*) width
-	  (xlib:screen-height *screen*) height)))
+#+clx-ext-randr
+(defhandler :rr-screen-change-notify (width height)
+  (setf (xlib:screen-width *screen*) width
+	(xlib:screen-height *screen*) height))
+
+#+clx-ext-randr
+(defhandler :rr-crtc-change-notify (rotation)
+  (let ((rotation (first (xlib:make-rotation-keys rotation))))
+    (case rotation
+      ((:rotate-0 :rotate-180) (when (> (xlib:screen-height *screen*) (xlib:screen-width *screen*))
+				 (rotatef (xlib:screen-width *screen*) (xlib:screen-height *screen*))))
+      ((:rotate-90 :rotate-270) (when (> (xlib:screen-width *screen*) (xlib:screen-height *screen*))
+				  (rotatef (xlib:screen-width *screen*) (xlib:screen-height *screen*)))))))
 
 ;; Restart functions
 (defmacro defrestart (name)
@@ -625,8 +630,9 @@ the window manager."
 
   (xlib:intern-atom *display* :_MOTIF_WM_HINTS)
   (setf (xlib:window-event-mask *root*) '(:substructure-notify :substructure-redirect))
-  (when (randr-p)
-    (xlib::rr-select-input *root* '(:screen-change-notify-mask)))
+
+  #+clx-ext-randr
+  (xlib:rr-select-input *root* '(:screen-change-notify-mask :crtc-change-notify-mask))
 
   (setf *last* (setf *curr* (first *windows*)))
   (focus *curr*)
