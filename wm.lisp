@@ -45,10 +45,10 @@ argument."
 
 (defmacro defhandler (event keys &body body)
   (let ((fn-name (gensym (symbol-name event)))
-	(event-slots (gensym)))
+        (event-slots (gensym)))
     `(labels ((,fn-name (&rest ,event-slots &key ,@keys &allow-other-keys)
-		(declare (ignore ,event-slots))
-		,@body))
+                (declare (ignore ,event-slots))
+                ,@body))
        (setf (elt *handlers* (position ,event xlib::*event-key-vector*)) #',fn-name))))
 
 (defun xclass (window) (multiple-value-bind (name class)
@@ -148,9 +148,9 @@ values."
                      (t (setf height new-h)))))
     (unless (pinned-p window)
       (setf (xlib:drawable-x window) x
-	    (xlib:drawable-y window) y
-	    (xlib:drawable-width window) width
-	    (xlib:drawable-height window) height))
+            (xlib:drawable-y window) y
+            (xlib:drawable-width window) width
+            (xlib:drawable-height window) height))
     (values x y width height dx dy dw dh)))
 
 (defun win= (a b)
@@ -159,14 +159,14 @@ values."
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
   (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
-		(window-error (c) nil))))
+                (window-error (c) nil))))
 
 (defun get-transients-of (window)
   (restart-case
       (loop for w in (xlib:query-tree *root*)
-	    nconc (loop for id in (xlib:get-property w :WM_TRANSIENT_FOR)
-			when (= id (xlib:window-id window))
-			  collect w))
+            nconc (loop for id in (xlib:get-property w :WM_TRANSIENT_FOR)
+                        when (= id (xlib:window-id window))
+                          collect w))
     (window-error (c) nil)))
 
 (defun %focus (window)
@@ -207,7 +207,7 @@ values."
 
 (defun transient-for-managed-p (window)
   (loop for id in (xlib:get-property window :WM_TRANSIENT_FOR)
-	  thereis (find id *windows* :key #'xlib:window-id)))
+          thereis (find id *windows* :key #'xlib:window-id)))
 
 (defun plus (window)
   "Add window to the list of managed windows."
@@ -241,11 +241,11 @@ the window to be focused."
 
 (defun window-center (window)
   (let ((x (xlib:drawable-x window))
-	(y (xlib:drawable-y window))
-	(width (xlib:drawable-width window))
-	(height (xlib:drawable-height window)))
+        (y (xlib:drawable-y window))
+        (width (xlib:drawable-width window))
+        (height (xlib:drawable-height window)))
     (list (+ x (truncate width 2))
-	  (+ y (truncate height 2)))))
+          (+ y (truncate height 2)))))
 
 (defun center ()
   "Center the current window."
@@ -255,7 +255,7 @@ the window to be focused."
         (h (xlib:drawable-height *curr*)))
     (xlib:with-state (*curr*)
       (move *curr* :x (- (truncate sw 2) (truncate w 2))
-		   :y (- (truncate sh 2) (truncate h 2))))))
+                   :y (- (truncate sh 2) (truncate h 2))))))
 
 (defun wash-sticky-position ()
   (unpin *curr*))
@@ -288,8 +288,8 @@ convention."
   (let ((win (find (if class class (x11-capitalize program))
                    *windows* :test #'string-equal :key #'xclass)))
     (if win
-	(focus win)
-	(run program))))
+        (focus win)
+        (run program))))
 
 (defun send-message (window type &rest data)
   (xlib:send-event window :client-message nil :window window
@@ -306,7 +306,7 @@ convention."
          (sb-unix:unix-access filename sb-unix:x_ok)))
   #+clisp
   (not (zerop (logand (posix:convert-mode (posix:file-stat-mode (posix:file-stat pathname)))
-		      (posix:convert-mode '(:xusr :xgrp :xoth)))))
+                      (posix:convert-mode '(:xusr :xgrp :xoth)))))
   #-(or sbcl clisp) t)
 
 (defun getenv (var) #+sbcl (sb-ext:posix-getenv var) #+clisp (ext:getenv var))
@@ -316,7 +316,7 @@ convention."
     (loop for path in paths
           append (loop for file in (directory (merge-pathnames
                                                #+sbcl (make-pathname :name :wild :type :wild)
-					       #+clisp (make-pathname :name :wild)
+                                               #+clisp (make-pathname :name :wild)
                                                (concatenate 'string path "/")))
                        when (execp file) collect (file-namestring file)))))
 
@@ -408,7 +408,7 @@ don't contain `sofar'."
 states. Use :inverse-p key to ungrab."
   (let ((code (code shortcut)))
     (if (< code 4)                      ;it's a mouse button
-	(if inverse-p
+        (if inverse-p
             (dolist (s (states shortcut))
               (xlib:ungrab-button *root* code :modifiers s))
             (dolist (s (states shortcut))
@@ -508,18 +508,18 @@ the window manager."
             (t
              (cond ((sc= *move* state code)
                     (setf last-x x last-y y))
-		   ((sc= *resize* state code)
-		    (let ((x (xlib:drawable-x window))
-			  (y (xlib:drawable-y window))
-			  (width (xlib:drawable-width window))
-			  (height (xlib:drawable-height window)))
-		      ;; here i use [last-x; last-y] as the [x; y]
-		      ;; position of the current window
-		      (setf last-x x last-y y)
-		      (unless (pinned-p window)
-			(xlib:warp-pointer window width height))))
+                   ((sc= *resize* state code)
+                    (let ((x (xlib:drawable-x window))
+                          (y (xlib:drawable-y window))
+                          (width (xlib:drawable-width window))
+                          (height (xlib:drawable-height window)))
+                      ;; here i use [last-x; last-y] as the [x; y]
+                      ;; position of the current window
+                      (setf last-x x last-y y)
+                      (unless (pinned-p window)
+                        (xlib:warp-pointer window width height))))
                    ((sc= *center-resize* state code)
-		    (setf last-x x last-y y)))
+                    (setf last-x x last-y y)))
              (setf last-button code)
              (focus window)
              (grab-mouse window '(:pointer-motion :button-release)))))))
@@ -528,30 +528,30 @@ the window manager."
   (let ((window (managed-p event-window)))
     (xlib:with-state (window)
       (when (or (null last-motion) (> (- time last-motion) (/ 1000 60)))
-	(let ((delta-x (- root-x last-x))
-	      (delta-y (- root-y last-y)))
-	  (cond ((= last-button (code *move*))
-		 (multiple-value-bind (x y width height dx dy) (move window :dx delta-x :dy delta-y)
-		   (declare (ignore x y width height))
-		   (incf last-x dx)
-		   (incf last-y dy)))
-		((= last-button (code *resize*))
-		 (move window :width delta-x :height delta-y))
-		((= last-button (code *center-resize*))
-		 ;; In order to take size-hints into account, we need
-		 ;; to first move the window (x,y) and then, in a
-		 ;; second time, wide/narrow the window
-		 (let* ((move-1 (multiple-value-list (move window :dx (- delta-x)
-								  :dy (- delta-y))))
-			(dx (nth 4 move-1))
-			(dy (nth 5 move-1))
-			(move-2 (multiple-value-list (move window :dw (* 2 (- dx))
-								  :dh (* 2 (- dy)))))
-			(dw (nth 6 move-2))
-			(dh (nth 7 move-2)))
-		   (incf last-x (truncate (- dw dx) 2))
-		   (incf last-y (truncate (- dh dy) 2))))))
-	(setf last-motion time)))))
+        (let ((delta-x (- root-x last-x))
+              (delta-y (- root-y last-y)))
+          (cond ((= last-button (code *move*))
+                 (multiple-value-bind (x y width height dx dy) (move window :dx delta-x :dy delta-y)
+                   (declare (ignore x y width height))
+                   (incf last-x dx)
+                   (incf last-y dy)))
+                ((= last-button (code *resize*))
+                 (move window :width delta-x :height delta-y))
+                ((= last-button (code *center-resize*))
+                 ;; In order to take size-hints into account, we need
+                 ;; to first move the window (x,y) and then, in a
+                 ;; second time, wide/narrow the window
+                 (let* ((move-1 (multiple-value-list (move window :dx (- delta-x)
+                                                                  :dy (- delta-y))))
+                        (dx (nth 4 move-1))
+                        (dy (nth 5 move-1))
+                        (move-2 (multiple-value-list (move window :dw (* 2 (- dx))
+                                                                  :dh (* 2 (- dy)))))
+                        (dw (nth 6 move-2))
+                        (dh (nth 7 move-2)))
+                   (incf last-x (truncate (- dw dx) 2))
+                   (incf last-y (truncate (- dh dy) 2))))))
+        (setf last-motion time)))))
 
 (defhandler :button-release () (ungrab-mouse))
 
@@ -574,34 +574,34 @@ the window manager."
 
 (defhandler :configure-request (window x y width height value-mask)
   (let ((list-mask (loop for i below 4
-			 when (= (ldb (byte 1 i) value-mask) 1)
-			   nconc (case i
-				   (0 (list :x x))
-				   (1 (list :y y))
-				   (2 (list :width width))
-				   (3 (list :height height))))))
+                         when (= (ldb (byte 1 i) value-mask) 1)
+                           nconc (case i
+                                   (0 (list :x x))
+                                   (1 (list :y y))
+                                   (2 (list :width width))
+                                   (3 (list :height height))))))
     (xlib:with-state (window)
       (restart-case (when list-mask (apply #'move window list-mask))
-	(window-error (c)
-	  (format t "~&configure-request: ~a ~a~%" c window)
-	  'processed)
-	(value-error (c)
-	  (format t "~&configure-request: ~a ~a~%" c window)
-	  'processed)))))
+        (window-error (c)
+          (format t "~&configure-request: ~a ~a~%" c window)
+          'processed)
+        (value-error (c)
+          (format t "~&configure-request: ~a ~a~%" c window)
+          'processed)))))
 
 #+clx-ext-randr
 (defhandler :rr-screen-change-notify (width height)
   (setf (xlib:screen-width *screen*) width
-	(xlib:screen-height *screen*) height))
+        (xlib:screen-height *screen*) height))
 
 #+clx-ext-randr
 (defhandler :rr-crtc-change-notify (rotation)
   (let ((rotation (first (xlib:make-rotation-keys rotation))))
     (case rotation
       ((:rotate-0 :rotate-180) (when (> (xlib:screen-height *screen*) (xlib:screen-width *screen*))
-				 (rotatef (xlib:screen-width *screen*) (xlib:screen-height *screen*))))
+                                 (rotatef (xlib:screen-width *screen*) (xlib:screen-height *screen*))))
       ((:rotate-90 :rotate-270) (when (> (xlib:screen-width *screen*) (xlib:screen-height *screen*))
-				  (rotatef (xlib:screen-width *screen*) (xlib:screen-height *screen*)))))))
+                                  (rotatef (xlib:screen-width *screen*) (xlib:screen-height *screen*)))))))
 
 ;; Restart functions
 (defmacro defrestart (name)
@@ -638,7 +638,7 @@ the window manager."
   (focus *curr*)
 
   (unwind-protect (handler-bind ((xlib:window-error #'restart-window-error)
-				 (xlib:drawable-error #'restart-drawable-error)
+                                 (xlib:drawable-error #'restart-drawable-error)
                                  (xlib:value-error #'restart-value-error)
                                  (simple-error #'restart-simple-error))
                     (evloop))
