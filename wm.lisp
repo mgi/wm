@@ -563,7 +563,7 @@ the window manager."
   (when (managed-p window)
     (focus (minus window))))
 
-(defhandler :map-request (parent send-event-p window)
+(defhandler :map-request (window)
   (restart-case (xlib:map-window (plus window))
     (window-error (c)
       (format t "~&map-request: ~a ~a~%" c window)
