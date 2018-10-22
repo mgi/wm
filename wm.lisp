@@ -590,9 +590,24 @@ the window manager."
           'processed)))))
 
 #+clx-ext-randr
-(defhandler :rr-screen-change-notify (width height)
-  (setf (xlib:screen-width *screen*) width
-        (xlib:screen-height *screen*) height))
+(defun crtc-size-of-output (output)
+  (multiple-value-bind (status timestamp crtc) (xlib:rr-get-output-info *display* output 0)
+    (when (eq status :success)
+      (multiple-value-bind (status timestamp x y width height) (xlib:rr-get-crtc-info *display* crtc timestamp)
+        (when (eq status :success)
+          (values width height))))))
+
+#+clx-ext-randr
+(defhandler :rr-screen-change-notify (root-window width height)
+  ;; Honor the primary output or defaults to the new given width and
+  ;; height
+  (let ((primary (xlib:rr-get-output-primary root-window)))
+    (cond ((zerop primary)
+           (setf (xlib:screen-width *screen*) width
+                 (xlib:screen-height *screen*) height))
+          (t (multiple-value-bind (width height) (crtc-size-of-output primary)
+               (setf (xlib:screen-width *screen*) width
+                     (xlib:screen-height *screen*) height))))))
 
 #+clx-ext-randr
 (defhandler :rr-crtc-change-notify (rotation)
