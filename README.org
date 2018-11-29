@@ -58,7 +58,7 @@
    - =Control-c= runs a new xterm;
    - =e= raises or run an emacs;
    - =w= raises or runs a web browser (defaults to [[https://www.mozilla.org/en-US/firefox/new/][firefox]]);
-   - =Control-l= locks the screen with xlock;
+   - =Control-l= locks the screen with =pkill -USR1 xidle=;
    - =a= is the app launcher: keys hit afterwards will look for the
      correct app;
    - ='= is the class finder: works like the app launcher but fetch

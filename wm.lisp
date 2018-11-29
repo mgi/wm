@@ -458,7 +458,7 @@ the window manager."
 (defshortcut (:control #\c) (run "xterm"))
 (defshortcut (#\e) (raise-or-run (getenv "EDITOR") "Emacs"))
 (defshortcut (#\w) (raise-or-run "firefox"))
-(defshortcut (:control #\l) (run "xlock"))
+(defshortcut (:control #\l) (run "pkill -USR1 xidle"))
 (defshortcut (#\n) (focus (next)))
 (defshortcut (:control #\n) (focus (next)))
 (defshortcut (#\p) (focus (next #'1-)))
