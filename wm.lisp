@@ -277,19 +277,13 @@ convention."
       (concatenate 'string "X" (string-capitalize (subseq string 1)))
       (string-capitalize string)))
 
-(defun run (command)
-  (let ((com (split-string command)))
-    #+clisp (ext:run-program (first com) :arguments (rest com) :wait nil)
-    #+sbcl (restart-case (sb-ext:run-program (first com) (rest com) :wait nil :search t)
-                         (simple-error (c) (format t "~&Cannot execute ~s~%" (first com))))))
-
-(defun raise-or-run (program &optional class)
-  "Raise (an existing window) or run a program."
+(defun raise-or-launch (program &optional class)
+  "Raise (an existing window) or launch a program."
   (let ((win (find (if class class (x11-capitalize program))
                    *windows* :test #'string-equal :key #'xclass)))
     (if win
         (focus win)
-        (run program))))
+        (uiop:launch-program program))))
 
 (defun send-message (window type &rest data)
   (xlib:send-event window :client-message nil :window window
@@ -377,7 +371,7 @@ don't contain `sofar'."
 
 (defun app ()
   (xlib:grab-keyboard *root*)
-  (unwind-protect (recdo *apps* #'run)
+  (unwind-protect (recdo *apps* #'uiop:launch-program)
     (xlib:ungrab-keyboard *display*)))
 
 (defun finder ()
@@ -454,11 +448,11 @@ the window manager."
 
 ;;; Keyboard shortcuts
 (defshortcut (:shift #\r) (load-rc))
-(defshortcut (#\c) (raise-or-run "xterm"))
-(defshortcut (:control #\c) (run "xterm"))
-(defshortcut (#\e) (raise-or-run (getenv "EDITOR") "Emacs"))
-(defshortcut (#\w) (raise-or-run "firefox"))
-(defshortcut (:control #\l) (run "pkill -USR1 xidle"))
+(defshortcut (#\c) (raise-or-launch "xterm"))
+(defshortcut (:control #\c) (uiop:launch-program "xterm"))
+(defshortcut (#\e) (raise-or-launch (getenv "EDITOR") "Emacs"))
+(defshortcut (#\w) (raise-or-launch "firefox"))
+(defshortcut (:control #\l) (uiop:launch-program "pkill -USR1 xidle"))
 (defshortcut (#\n) (focus (next)))
 (defshortcut (:control #\n) (focus (next)))
 (defshortcut (#\p) (focus (next #'1-)))
