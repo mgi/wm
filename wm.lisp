@@ -553,7 +553,7 @@ the window manager."
   (unless override-redirect-p
     (focus (managed-p window))))
 
-(defhandler :unmap-notify (window)
+(defhandler :destroy-notify (window)
   (when (managed-p window)
     (focus (minus window))))
 
