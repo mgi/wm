@@ -154,7 +154,7 @@ values."
     (values x y width height dx dy dw dh)))
 
 (defun win= (a b)
-  (and (typep a 'xlib:window) (typep b 'xlib:window) (xlib:window-equal a b)))
+  (and (xlib:window-p a) (xlib:window-p b) (xlib:window-equal a b)))
 
 (defun grouper (window)
   "Get the grouper function of a window if there is one."
@@ -176,7 +176,7 @@ values."
     (setf (xlib:window-priority w) :above)))
 
 (defun focus (window)
-  (unless (or (null window))
+  (when window
     (let* ((grouper (grouper window))
            (group (when (functionp grouper)
                     (sort (loop for w in *windows*
