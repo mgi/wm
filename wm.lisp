@@ -177,6 +177,7 @@ values."
     (setf (xlib:window-priority w) :above)))
 
 (defun same-group (window)
+  "Return a list of windows in the same group as `window'."
   (let ((group-tag (getf (xlib:window-plist window) :group)))
     (when group-tag
       (loop for w in *windows*
@@ -248,14 +249,6 @@ the window to be focused."
     (xlib:with-state (*curr*)
       (move *curr* :x 0 :y 0 :width sw :height sh))
     (when pinned-p (pin *curr*))))
-
-(defun window-center (window)
-  (let ((x (xlib:drawable-x window))
-        (y (xlib:drawable-y window))
-        (width (xlib:drawable-width window))
-        (height (xlib:drawable-height window)))
-    (list (+ x (truncate width 2))
-          (+ y (truncate height 2)))))
 
 (defun center ()
   "Center the current window."
