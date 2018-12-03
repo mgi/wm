@@ -93,6 +93,7 @@ shortcut. Takes care of CapsLock and NumLock combination."
              (rplacd ,asc #',fn)
              (push (cons ,sc #',fn) *shortcuts*))))))
 
+(defun %group (window char) (setf (getf (xlib:window-plist window) :group) char))
 (defun pinned-p (window) (getf (xlib:window-plist window) :pinned))
 (defun pin (window) (setf (getf (xlib:window-plist window) :pinned) t))
 (defun unpin (window) (remf (xlib:window-plist window) :pinned))
@@ -175,6 +176,14 @@ values."
   (dolist (w (get-transients-of window))
     (setf (xlib:window-priority w) :above)))
 
+(defun same-group (window)
+  (let ((group-tag (getf (xlib:window-plist window) :group)))
+    (when group-tag
+      (loop for w in *windows*
+            when (let ((tag (getf (xlib:window-plist w) :group)))
+                   (and tag (string= tag group-tag) (not (win= window w))))
+              collect w))))
+
 (defun focus (window)
   (when window
     (let* ((grouper (grouper window))
@@ -192,6 +201,7 @@ values."
                (setf *last* *curr*
                      *curr* window))
              (xlib:set-input-focus *display* window :pointer-root)))
+      (dolist (w (same-group window)) (%focus w))
       (%focus window))))
 
 (defun next (&optional (way #'1+))
@@ -379,6 +389,13 @@ don't contain `sofar'."
   (unwind-protect (recdo *windows* #'focus :key #'xclass :matcher #'in-matcher)
     (xlib:ungrab-keyboard *display*)))
 
+(defun group ()
+  (xlib:grab-keyboard *root*)
+  (unwind-protect (recdo (list "a" "b" "c") #'(lambda (c) (%group *curr* c)))
+    (xlib:ungrab-keyboard *display*)))
+
+(defun ungroup () (remf (xlib:window-plist *curr*) :group))
+
 (defun banish ()
   "Banish mouse pointer."
   (xlib:warp-pointer *root* (xlib:screen-width *screen*) (xlib:screen-height *screen*)))
@@ -461,6 +478,8 @@ the window manager."
 (defshortcut (#\b) (banish))
 (defshortcut (#\') (finder))
 (defshortcut (#\f) (fullscreen))
+(defshortcut (#\g) (group))
+(defshortcut (#\u) (ungroup))
 (defshortcut (:shift #\f) (fullscreen :pinned-p t))
 (defshortcut (#\.) (center))
 (defshortcut (:shift #\.) (center))
