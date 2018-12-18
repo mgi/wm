@@ -56,9 +56,9 @@ argument."
                              (window-error (c) (values "" "I'm probably dead")))
                          class))
 
-(defparameter *groupers* (list
+(defparameter *families* (list
                           #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal)))
-  "List of predicates against which windows are grouped")
+  "List of predicates against which windows are of the same family.")
 
 (defstruct (shortcut (:conc-name)) (states nil) (code 0))
 
@@ -157,9 +157,9 @@ values."
 (defun win= (a b)
   (and (xlib:window-p a) (xlib:window-p b) (xlib:window-equal a b)))
 
-(defun grouper (window)
-  "Get the grouper function of a window if there is one."
-  (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *groupers*)
+(defun family (window)
+  "Get the family function of a window if there is one."
+  (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *families*)
                 (window-error (c) nil))))
 
 (defun get-transients-of (window)
@@ -189,29 +189,32 @@ values."
   (when window
     (if (eql (xlib:window-map-state window) :unmapped)
         (xlib:map-window window)
-        (let* ((grouper (grouper window))
-               (group (when (functionp grouper)
-                        (sort (loop for w in *windows*
-                                    when (funcall grouper w) collect w) #'< :key #'xlib:window-id))))
-          (cond (group
-                 (unless (member *curr* group :test #'win=)
+        (let* ((family-fun (family window))
+               (family (when (functionp family-fun)
+                         (sort (loop for w in *windows*
+                                     when (funcall family-fun w) collect w) #'< :key #'xlib:window-id))))
+          (cond (family
+                 ;; focus every other family members and set input
+                 ;; focus as follow mouse
+                 (unless (member *curr* family :test #'win=)
                    (setf *last* *curr*
-                         *curr* (first group)))
-                 (dolist (w group) (%focus w))
+                         *curr* (first family)))
+                 (dolist (w family) (%focus w))
                  (xlib:set-input-focus *display* :pointer-root :pointer-root))
                 (t
+                 ;; set input focus to window
                  (unless (win= *curr* window)
                    (setf *last* *curr*
                          *curr* window))
                  (xlib:set-input-focus *display* window :pointer-root)))
-          (let ((foo (same-group window)))
-            (dolist (w foo) (%focus w)))
+          (let ((group (same-group window)))
+            (dolist (w group) (%focus w)))
           (%focus window)))))
 
 (defun next (&optional (way #'1+))
-  (let* ((grouper (grouper *curr*))
-         (windows (if (functionp grouper)
-                      (remove-if #'(lambda (w) (and (funcall grouper w)
+  (let* ((family (family *curr*))
+         (windows (if (functionp family)
+                      (remove-if #'(lambda (w) (and (funcall family w)
                                                     (not (win= w *curr*)))) *windows*)
                       *windows*))
          (n (length windows))

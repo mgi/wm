@@ -43,7 +43,7 @@
 ;; Define a new shortcut for a local application and group all the
 ;; windows of this app by X Window class.
 (defshortcut (:mod-1 #\e) (run "envi"))
-(push #'(lambda (w) (string= (xclass w) "Idl")) *groupers*)
+(push #'(lambda (w) (string= (xclass w) "Idl")) *families*)
 #+END_SRC
 ** Shortcuts
    =Control-t= is the default prefix key. Every shortcut starts with
