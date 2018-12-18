@@ -187,23 +187,26 @@ values."
 
 (defun focus (window)
   (when window
-    (let* ((grouper (grouper window))
-           (group (when (functionp grouper)
-                    (sort (loop for w in *windows*
-                                when (funcall grouper w) collect w) #'< :key #'xlib:window-id))))
-      (cond (group
-             (unless (member *curr* group :test #'win=)
-               (setf *last* *curr*
-                     *curr* (first group)))
-             (dolist (w group) (%focus w))
-             (xlib:set-input-focus *display* :pointer-root :pointer-root))
-            (t
-             (unless (win= *curr* window)
-               (setf *last* *curr*
-                     *curr* window))
-             (xlib:set-input-focus *display* window :pointer-root)))
-      (dolist (w (same-group window)) (%focus w))
-      (%focus window))))
+    (if (eql (xlib:window-map-state window) :unmapped)
+        (xlib:map-window window)
+        (let* ((grouper (grouper window))
+               (group (when (functionp grouper)
+                        (sort (loop for w in *windows*
+                                    when (funcall grouper w) collect w) #'< :key #'xlib:window-id))))
+          (cond (group
+                 (unless (member *curr* group :test #'win=)
+                   (setf *last* *curr*
+                         *curr* (first group)))
+                 (dolist (w group) (%focus w))
+                 (xlib:set-input-focus *display* :pointer-root :pointer-root))
+                (t
+                 (unless (win= *curr* window)
+                   (setf *last* *curr*
+                         *curr* window))
+                 (xlib:set-input-focus *display* window :pointer-root)))
+          (let ((foo (same-group window)))
+            (dolist (w foo) (%focus w)))
+          (%focus window)))))
 
 (defun next (&optional (way #'1+))
   (let* ((grouper (grouper *curr*))
