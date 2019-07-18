@@ -12,16 +12,13 @@
 ** Install
    - Install [[http://www.sbcl.org/][SBCL]] or [[http://www.clisp.org/][CLISP]] on your system (should be available via
      your system's packages);
-   - Install [[http://www.quicklisp.org/][quicklisp]] (if you want to use the quicklisp launcher);
-   - Tweak the first line of =ql-launcher.lisp= to point to your
-     quicklisp directory.
+   - Be sure to have [[http://www.quicklisp.org/][quicklisp]] or ASDF setup.
 *** with SBCL
-    Append =sbcl --script <your path to>/ql-launcher.lisp [height
+    Append =sbcl --script <your path to>/launcher.lisp [height
     [width]]= to your .xinitrc or .xsession.
 *** with CLISP
-    Append =xhost local:local= and =clisp <your path
-     to>/ql-launcher.lisp [height [width]]= to your .xinitrc or
-     .xsession.
+    Append =xhost local:local= and =clisp <your path to>/launcher.lisp
+     [height [width]]= to your .xinitrc or .xsession.
 
   Note: The optional height and width are used to determine the center
   and the fullscreen region
