@@ -58,7 +58,7 @@ argument."
 
 (defparameter *families* (list
                           #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal)))
-  "List of predicates against which windows are of the same family.")
+  "List of predicates that tells if windows are of the same family.")
 
 (defstruct (shortcut (:conc-name)) (states nil) (code 0))
 
@@ -93,7 +93,14 @@ shortcut. Takes care of CapsLock and NumLock combination."
              (rplacd ,asc #',fn)
              (push (cons ,sc #',fn) *shortcuts*))))))
 
-(defun %group (window char) (setf (getf (xlib:window-plist window) :group) char))
+(defun %group (window char)
+  (labels ((set-char (window)
+             (setf (getf (xlib:window-plist window) :group) char)))
+    (let ((family (family window)))
+      (if (consp family)
+          (mapcar #'set-char family)
+          (set-char window)))))
+
 (defun pinned-p (window) (getf (xlib:window-plist window) :pinned))
 (defun pin (window) (setf (getf (xlib:window-plist window) :pinned) t))
 (defun unpin (window) (remf (xlib:window-plist window) :pinned))
@@ -158,9 +165,11 @@ values."
   (and (xlib:window-p a) (xlib:window-p b) (xlib:window-equal a b)))
 
 (defun family (window)
-  "Get the family function of a window if there is one."
-  (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *families*)
-                (window-error (c) nil))))
+  "Get the family of a window."
+  (let ((family-fun (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *families*)
+                                  (window-error (c) nil)))))
+    (when (functionp family-fun)
+      (loop for w in *windows* when (funcall family-fun w) collect w))))
 
 (defun get-transients-of (window)
   (restart-case
@@ -168,13 +177,35 @@ values."
             nconc (loop for id in (xlib:get-property w :WM_TRANSIENT_FOR)
                         when (= id (xlib:window-id window))
                           collect w))
-    (window-error (c) nil)))
+    (window-error (c) (declare (ignore c)) nil)
+    (match-error (c)
+      (format t "~&get-transients-of: ~a ~a~%" c window)
+      nil)))
 
 (defun %focus (window)
-  "Low level focus for *one* managed window."
-  (setf (xlib:window-priority window) :above)
-  (dolist (w (get-transients-of window))
-    (setf (xlib:window-priority w) :above)))
+  "Focus one window and its family if needed."
+  (labels ((up (win)
+             (setf (xlib:window-priority win) :above)
+             (dolist (w (get-transients-of win))
+               (setf (xlib:window-priority w) :above))))
+    (let ((family (sort (family window) #'< :key #'xlib:window-id)))
+      (cond (family
+             ;; focus every other family members and set input
+             ;; focus as follow mouse
+             (unless (member *curr* family :test #'win=)
+               (setf *last* *curr*
+                     *curr* (first family)))
+             (dolist (w family) (up w))
+             (xlib:set-input-focus *display* :pointer-root :pointer-root))
+            (t
+             ;; set input focus to window
+             (unless (win= *curr* window)
+               (setf *last* *curr*
+                     *curr* window))
+             (xlib:set-input-focus *display* window :pointer-root)))
+          (up window))))
+
+(defparameter *one-group-at-a-time* t "Should the focus shows one group at a time")
 
 (defun same-group (window)
   "Return a list of windows in the same group as `window'."
@@ -187,36 +218,14 @@ values."
 
 (defun focus (window)
   (when window
-    (if (eql (xlib:window-map-state window) :unmapped)
-        (xlib:map-window window)
-        (let* ((family-fun (family window))
-               (family (when (functionp family-fun)
-                         (sort (loop for w in *windows*
-                                     when (funcall family-fun w) collect w) #'< :key #'xlib:window-id))))
-          (cond (family
-                 ;; focus every other family members and set input
-                 ;; focus as follow mouse
-                 (unless (member *curr* family :test #'win=)
-                   (setf *last* *curr*
-                         *curr* (first family)))
-                 (dolist (w family) (%focus w))
-                 (xlib:set-input-focus *display* :pointer-root :pointer-root))
-                (t
-                 ;; set input focus to window
-                 (unless (win= *curr* window)
-                   (setf *last* *curr*
-                         *curr* window))
-                 (xlib:set-input-focus *display* window :pointer-root)))
-          (let ((group (same-group window)))
-            (dolist (w group) (%focus w)))
-          (%focus window)))))
+    (let ((group (same-group window)))
+      (dolist (w group) (%focus w))
+      (%focus window))))
 
 (defun next (&optional (way #'1+))
   (let* ((family (family *curr*))
-         (windows (if (functionp family)
-                      (remove-if #'(lambda (w) (and (funcall family w)
-                                                    (not (win= w *curr*)))) *windows*)
-                      *windows*))
+         (group (same-group *curr*))
+         (windows (set-difference *windows* (union family group :test #'win=) :test #'win=))
          (n (length windows))
          (nw (or (position *curr* windows :test #'win=) 0)))
     (unless (zerop n)
@@ -641,6 +650,7 @@ the window manager."
 
 (defrestart window-error)
 (defrestart drawable-error)
+(defrestart match-error)
 (defrestart simple-error)
 (defrestart value-error)
 
@@ -666,6 +676,7 @@ the window manager."
 
   (unwind-protect (handler-bind ((xlib:window-error #'restart-window-error)
                                  (xlib:drawable-error #'restart-drawable-error)
+                                 (xlib:match-error #'restart-match-error)
                                  (xlib:value-error #'restart-value-error)
                                  (simple-error #'restart-simple-error))
                     (evloop))
