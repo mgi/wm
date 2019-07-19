@@ -53,7 +53,8 @@ argument."
 
 (defun xclass (window) (multiple-value-bind (name class)
                            (restart-case (xlib:get-wm-class window)
-                             (window-error (c) (values "" "I'm probably dead")))
+                             (window-error (c) (declare (ignore c)) (values "" "I'm probably dead")))
+                         (declare (ignore name))
                          class))
 
 (defparameter *families* (list
@@ -608,6 +609,7 @@ the window manager."
   (multiple-value-bind (status timestamp crtc) (xlib:rr-get-output-info *display* output 0)
     (when (eq status :success)
       (multiple-value-bind (status timestamp x y width height) (xlib:rr-get-crtc-info *display* crtc timestamp)
+        (declare (ignore timestamp x y))
         (when (eq status :success)
           (values width height))))))
 
