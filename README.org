@@ -35,11 +35,11 @@
 (setf *quit* (compile-shortcut :control :shift #\q))
 
 ;; Use Chrome as web browser
-(defshortcut (#\w) (raise-or-run "chrome"))
+(defshortcut (#\w) (raise-or-launch "chrome"))
 
 ;; Define a new shortcut for a local application and group all the
 ;; windows of this app by X Window class.
-(defshortcut (:mod-1 #\e) (run "envi"))
+(defshortcut (:mod-1 #\e) (raise-or-launch "envi"))
 (push #'(lambda (w) (string= (xclass w) "Idl")) *families*)
 #+END_SRC
 ** Shortcuts
