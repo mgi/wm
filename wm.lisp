@@ -58,7 +58,7 @@ argument."
 
 (defparameter *families* (list
                           #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal)))
-  "List of predicates that tells if windows are of the same family.")
+  "List of predicates to make some windows of the same family.")
 
 (defstruct (shortcut (:conc-name)) (states nil) (code 0))
 
@@ -165,11 +165,21 @@ values."
   (and (xlib:window-p a) (xlib:window-p b) (xlib:window-equal a b)))
 
 (defun family (window)
-  "Get the family of a window."
+  "Get members of the family and group of a window."
   (let ((family-fun (and window (restart-case (find-if #'(lambda (f) (funcall f window)) *families*)
-                                  (window-error (c) nil)))))
+                                  (window-error (c) (declare (ignore c)) nil))))
+        (group-tag (getf (xlib:window-plist window) :group))
+        result)
     (when (functionp family-fun)
-      (loop for w in *windows* when (funcall family-fun w) collect w))))
+      (dolist (w *windows*)
+        (when (funcall family-fun w)
+          (pushnew w result :test #'win=))))
+    (when group-tag
+      (dolist (w *windows*)
+        (when (let ((tag (getf (xlib:window-plist w) :group)))
+                (and tag (string= tag group-tag) (not (win= window w))))
+          (pushnew w result :test #'win=))))
+    result))
 
 (defun get-transients-of (window)
   (restart-case
@@ -182,50 +192,33 @@ values."
       (format t "~&get-transients-of: ~a ~a~%" c window)
       nil)))
 
-(defun %focus (window)
-  "Focus one window and its family if needed."
-  (labels ((up (win)
-             (setf (xlib:window-priority win) :above)
-             (dolist (w (get-transients-of win))
-               (setf (xlib:window-priority w) :above))))
-    (let ((family (sort (family window) #'< :key #'xlib:window-id)))
-      (cond (family
-             ;; focus every other family members and set input
-             ;; focus as follow mouse
-             (unless (member *curr* family :test #'win=)
-               (setf *last* *curr*
-                     *curr* (first family)))
-             (dolist (w family) (up w))
-             (xlib:set-input-focus *display* :pointer-root :pointer-root))
-            (t
-             ;; set input focus to window
-             (unless (win= *curr* window)
-               (setf *last* *curr*
-                     *curr* window))
-             (xlib:set-input-focus *display* window :pointer-root)))
-          (up window))))
-
-(defparameter *one-group-at-a-time* t "Should the focus shows one group at a time")
-
-(defun same-group (window)
-  "Return a list of windows in the same group as `window'."
-  (let ((group-tag (getf (xlib:window-plist window) :group)))
-    (when group-tag
-      (loop for w in *windows*
-            when (let ((tag (getf (xlib:window-plist w) :group)))
-                   (and tag (string= tag group-tag) (not (win= window w))))
-              collect w))))
-
 (defun focus (window)
+  "Focus one window and its family if needed."
   (when window
-    (let ((group (same-group window)))
-      (dolist (w group) (%focus w))
-      (%focus window))))
+    (labels ((up (win)
+               (setf (xlib:window-priority win) :above)
+               (dolist (w (get-transients-of win))
+                 (setf (xlib:window-priority w) :above))))
+      (let ((family (sort (family window) #'< :key #'xlib:window-id)))
+        (cond (family
+               ;; focus every other family members and set input
+               ;; focus as follow mouse
+               (unless (member *curr* family :test #'win=)
+                 (setf *last* *curr*
+                       *curr* (first family)))
+               (dolist (w family) (up w))
+               (xlib:set-input-focus *display* :pointer-root :pointer-root))
+              (t
+               ;; set input focus to window
+               (unless (win= *curr* window)
+                 (setf *last* *curr*
+                       *curr* window))
+               (xlib:set-input-focus *display* window :pointer-root)))
+        (up window)))))
 
 (defun next (&optional (way #'1+))
   (let* ((family (family *curr*))
-         (group (same-group *curr*))
-         (windows (set-difference *windows* (union family group :test #'win=) :test #'win=))
+         (windows (set-difference *windows* family :test #'win=))
          (n (length windows))
          (nw (or (position *curr* windows :test #'win=) 0)))
     (unless (zerop n)
@@ -238,7 +231,7 @@ values."
 (defun plus (window)
   "Add window to the list of managed windows."
   (unless (or (eql (xlib:window-override-redirect window) :on)
-	      (transient-for-managed-p window))
+              (transient-for-managed-p window))
     (pushnew window *windows* :test #'win=))
   window)
 
