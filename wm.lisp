@@ -261,13 +261,14 @@ the window to be focused."
 
 (defun center ()
   "Center the current window."
-  (let ((sw (xlib:screen-width *screen*))
-        (sh (xlib:screen-height *screen*))
-        (w (xlib:drawable-width *curr*))
-        (h (xlib:drawable-height *curr*)))
-    (xlib:with-state (*curr*)
-      (move *curr* :x (- (truncate sw 2) (truncate w 2))
-                   :y (- (truncate sh 2) (truncate h 2))))))
+  (when *curr*
+    (let ((sw (xlib:screen-width *screen*))
+          (sh (xlib:screen-height *screen*))
+          (w (xlib:drawable-width *curr*))
+          (h (xlib:drawable-height *curr*)))
+      (xlib:with-state (*curr*)
+        (move *curr* :x (- (truncate sw 2) (truncate w 2))
+                     :y (- (truncate sh 2) (truncate h 2)))))))
 
 (defun wash-sticky-position ()
   (unpin *curr*))
