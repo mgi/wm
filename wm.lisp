@@ -495,6 +495,10 @@ the window manager."
 (defvar last-motion nil)
 (defvar waiting-shortcut nil)
 
+(defun funcall-shortcut (state code)
+  (let ((fn  (cdr (assoc-if #'(lambda (sc) (sc= sc state code)) *shortcuts*))))
+    (when (functionp fn) (funcall fn))))
+
 (defhandler :key-press (state code)
   (unless (is-modifier code)
     (cond (waiting-shortcut
@@ -502,9 +506,7 @@ the window manager."
                  (t
                   (cond ((sc= *prefix* state code) (focus *last*))
                         ((= code (code *prefix*)) (send-prefix *curr*))
-                        (t (let ((fn (cdr (assoc-if #'(lambda (sc) (sc= sc state code))
-                                                    *shortcuts*))))
-                             (when (functionp fn) (funcall fn)))))
+                        (t (funcall-shortcut state code)))
                   (xlib:ungrab-keyboard *display*)
                   (ungrab-mouse)
                   (setf waiting-shortcut nil))))
