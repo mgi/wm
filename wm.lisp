@@ -16,7 +16,8 @@
 (defvar *last* nil "Last focused window.")
 (defvar *curr* nil "Current focused window.")
 (defvar *rc* (merge-pathnames ".wm.lisp" (user-homedir-pathname)) "User config file.")
-(defvar *shortcuts* nil "Shortcuts alist.")
+(defvar *prefix-shortcuts* nil "Prefix shortcuts alist.")
+(defvar *direct-shortcuts* nil "Direct shortcuts alist.")
 (defvar *handlers* (make-list (length xlib::*event-key-vector*)
                               :initial-element #'(lambda (&rest slots))))
 
@@ -82,17 +83,24 @@ shortcut. Takes care of CapsLock and NumLock combination."
 (defun sc= (sc state code) (and (code sc) (= (code sc) code) (member state (states sc))))
 (defun sc-equal (sc1 sc2) (equalp sc1 sc2))
 
-(defmacro define-shortcut (key &body body)
-  "Define a new shortcut in *shortcuts* alist. The key in this alist
-  is a shortcut structure and the associated value is a lambda without
-  argument."
-  (with-gensyms (sc asc fn)
-    `(let* ((,sc (compile-shortcut ,@key))
-            (,asc (assoc ,sc *shortcuts* :test #'sc-equal)))
-       (labels ((,fn () ,@body))
-         (if ,asc
-             (rplacd ,asc #',fn)
-             (push (cons ,sc #',fn) *shortcuts*))))))
+(eval-when (:compile-toplevel)
+  (defun %gen-shorcut-code (alist-name key body)
+    (with-gensyms (sc asc fn)
+      `(let* ((,sc (compile-shortcut ,@key))
+              (,asc (assoc ,sc ,alist-name :test #'sc-equal)))
+         (labels ((,fn () ,@body))
+           (if ,asc
+               (rplacd ,asc #',fn)
+               (push (cons ,sc #',fn) ,alist-name)))))))
+
+(defmacro define-prefix-shortcut (key &body body)
+  "Define a new prefix shortcut. The key in this alist is a shortcut
+  structure and the associated value is a lambda without argument."
+  (%gen-shorcut-code '*prefix-shortcuts* key body))
+
+(defmacro define-direct-shortcut (key &body body)
+  "Define a new direct shortcut."
+  (%gen-shorcut-code '*direct-shortcuts* key body))
 
 (defun %group (window char)
   (labels ((set-char (window)
@@ -434,12 +442,14 @@ states. Use :inverse-p key to ungrab."
 (defun grab-all ()
   "Grab prefix and mouse buttons on root."
   (grab-it *prefix*)
+  (mapcar #'(lambda (x) (grab-it (car x))) *direct-shortcuts*)
   (dolist (b (list *move* *center-resize* *resize* *close*))
     (grab-it b)))
 
 (defun ungrab-all ()
   (dolist (b (list *move* *center-resize* *resize* *close*))
     (grab-it b :inverse-p t))
+  (mapcar #'(lambda (x) (grab-it (car x) :inverse-p t)) *direct-shortcuts*)
   (grab-it *prefix* :inverse-p t))
 
 (defparameter *cursor*
@@ -466,28 +476,28 @@ the window manager."
   (grab-all)
   (xlib:display-finish-output *display*))
 
-;;; Keyboard shortcuts
-(define-shortcut (:shift #\r) (load-rc))
-(define-shortcut (#\c) (raise-or-launch "xterm"))
-(define-shortcut (:control #\c) (uiop:launch-program "xterm"))
-(define-shortcut (#\e) (raise-or-launch (getenv "EDITOR") "Emacs"))
-(define-shortcut (#\w) (raise-or-launch "firefox"))
-(define-shortcut (:control #\l) (uiop:launch-program "pkill -USR1 xidle"))
-(define-shortcut (#\n) (focus (next)))
-(define-shortcut (:control #\n) (focus (next)))
-(define-shortcut (#\p) (focus (next #'1-)))
-(define-shortcut (:control #\p) (focus (next #'1-)))
-(define-shortcut (#\a) (app))
-(define-shortcut (#\b) (banish))
-(define-shortcut (#\') (finder))
-(define-shortcut (#\f) (fullscreen))
-(define-shortcut (#\g) (group))
-(define-shortcut (#\u) (ungroup))
-(define-shortcut (:shift #\f) (fullscreen :pinned-p t))
-(define-shortcut (#\.) (center))
-(define-shortcut (:shift #\.) (center))
-(define-shortcut (:shift #\p) (toggle-pin))
-(define-shortcut (:shift #\w) (wash-sticky-position))
+;;; Keyboard prefix shortcuts
+(define-prefix-shortcut (:shift #\r) (load-rc))
+(define-prefix-shortcut (#\c) (raise-or-launch "xterm"))
+(define-prefix-shortcut (:control #\c) (uiop:launch-program "xterm"))
+(define-prefix-shortcut (#\e) (raise-or-launch (getenv "EDITOR") "Emacs"))
+(define-prefix-shortcut (#\w) (raise-or-launch "firefox"))
+(define-prefix-shortcut (:control #\l) (uiop:launch-program "pkill -USR1 xidle"))
+(define-prefix-shortcut (#\n) (focus (next)))
+(define-prefix-shortcut (:control #\n) (focus (next)))
+(define-prefix-shortcut (#\p) (focus (next #'1-)))
+(define-prefix-shortcut (:control #\p) (focus (next #'1-)))
+(define-prefix-shortcut (#\a) (app))
+(define-prefix-shortcut (#\b) (banish))
+(define-prefix-shortcut (#\') (finder))
+(define-prefix-shortcut (#\f) (fullscreen))
+(define-prefix-shortcut (#\g) (group))
+(define-prefix-shortcut (#\u) (ungroup))
+(define-prefix-shortcut (:shift #\f) (fullscreen :pinned-p t))
+(define-prefix-shortcut (#\.) (center))
+(define-prefix-shortcut (:shift #\.) (center))
+(define-prefix-shortcut (:shift #\p) (toggle-pin))
+(define-prefix-shortcut (:shift #\w) (wash-sticky-position))
 
 (defvar last-button nil)
 (defvar last-x nil)
@@ -495,8 +505,8 @@ the window manager."
 (defvar last-motion nil)
 (defvar waiting-shortcut nil)
 
-(defun funcall-shortcut (state code)
-  (let ((fn  (cdr (assoc-if #'(lambda (sc) (sc= sc state code)) *shortcuts*))))
+(defun funcall-shortcut (state code alist)
+  (let ((fn  (cdr (assoc-if #'(lambda (sc) (sc= sc state code)) alist))))
     (when (functionp fn) (funcall fn))))
 
 (defhandler :key-press (state code)
@@ -506,14 +516,15 @@ the window manager."
                  (t
                   (cond ((sc= *prefix* state code) (focus *last*))
                         ((= code (code *prefix*)) (send-prefix *curr*))
-                        (t (funcall-shortcut state code)))
+                        (t (funcall-shortcut state code *prefix-shortcuts*)))
                   (xlib:ungrab-keyboard *display*)
                   (ungrab-mouse)
                   (setf waiting-shortcut nil))))
           ((sc= *prefix* state code)
            (xlib:grab-keyboard *root*)
            (grab-mouse *root* nil)
-           (setf waiting-shortcut t)))))
+           (setf waiting-shortcut t))
+          (t (funcall-shortcut state code *direct-shortcuts*)))))
 
 ;; In the two following handlers, the top `window' binding is required
 ;; else we're using a fresh instance of window without its plist set
@@ -649,7 +660,6 @@ the window manager."
 (defrestart window-error)
 (defrestart drawable-error)
 (defrestart match-error)
-(defrestart simple-error)
 (defrestart value-error)
 
 (defun evloop ()
@@ -675,8 +685,7 @@ the window manager."
   (unwind-protect (handler-bind ((xlib:window-error #'restart-window-error)
                                  (xlib:drawable-error #'restart-drawable-error)
                                  (xlib:match-error #'restart-match-error)
-                                 (xlib:value-error #'restart-value-error)
-                                 (simple-error #'restart-simple-error))
+                                 (xlib:value-error #'restart-value-error))
                     (evloop))
     (ungrab-all)
     (xlib:close-display *display*)))
