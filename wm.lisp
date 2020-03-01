@@ -83,7 +83,7 @@ shortcut. Takes care of CapsLock and NumLock combination."
 (defun sc= (sc state code) (and (code sc) (= (code sc) code) (member state (states sc))))
 (defun sc-equal (sc1 sc2) (equalp sc1 sc2))
 
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :load-toplevel)
   (defun %gen-shorcut-code (alist-name key body)
     (with-gensyms (sc asc fn)
       `(let* ((,sc (compile-shortcut ,@key))
