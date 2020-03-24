@@ -425,32 +425,32 @@ don't contain `sofar'."
                           :code (code *prefix*)
                           :state (first (states *prefix*))))
 
-(defun grab-it (shortcut &key inverse-p)
-  "Grab a given key or button shortcut in all its
+(defun grab-it (window shortcut &key inverse-p)
+  "On WINDOW, grab a given key or button SHORTCUT in all its
 states. Use :inverse-p key to ungrab."
   (let ((code (code shortcut)))
     (if (< code 4)                      ;it's a mouse button
         (if inverse-p
             (dolist (s (states shortcut))
-              (xlib:ungrab-button *root* code :modifiers s))
+              (xlib:ungrab-button window code :modifiers s))
             (dolist (s (states shortcut))
-              (xlib:grab-button *root* code '(:button-press) :modifiers s)))
+              (xlib:grab-button window code '(:button-press) :modifiers s)))
         (let ((grab/ungrab (if inverse-p #'xlib:ungrab-key #'xlib:grab-key)))
           (dolist (s (states shortcut))
-            (funcall grab/ungrab *root* code :modifiers s))))))
+            (funcall grab/ungrab window code :modifiers s))))))
 
 (defun grab-all ()
   "Grab prefix and mouse buttons on root."
-  (grab-it *prefix*)
-  (mapcar #'(lambda (x) (grab-it (car x))) *direct-shortcuts*)
+  (grab-it *root* *prefix*)
+  (mapcar #'(lambda (x) (grab-it *root* (car x))) *direct-shortcuts*)
   (dolist (b (list *move* *center-resize* *resize* *close*))
-    (grab-it b)))
+    (grab-it *root* b)))
 
 (defun ungrab-all ()
   (dolist (b (list *move* *center-resize* *resize* *close*))
-    (grab-it b :inverse-p t))
-  (mapcar #'(lambda (x) (grab-it (car x) :inverse-p t)) *direct-shortcuts*)
-  (grab-it *prefix* :inverse-p t))
+    (grab-it *root* b :inverse-p t))
+  (mapcar #'(lambda (x) (grab-it *root* (car x) :inverse-p t)) *direct-shortcuts*)
+  (grab-it *root* *prefix* :inverse-p t))
 
 (defparameter *cursor*
   (let* ((white (xlib:make-color :red 1.0 :green 1.0 :blue 1.0))
