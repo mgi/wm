@@ -76,7 +76,7 @@ shortcut."
           (make-shortcut :state state :code code))
         (make-shortcut :state state :code k))))
 
-(defun sc= (sc state code) (and (= code (code sc)) (= state (state sc))))
+(defun sc= (sc state code) (and (code sc) (= code (code sc)) (= state (state sc))))
 (defun sc-equal (sc1 sc2) (equalp sc1 sc2))
 
 (eval-when (:compile-toplevel :load-toplevel)
