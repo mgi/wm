@@ -62,25 +62,21 @@ argument."
                           #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal)))
   "List of predicates to make some windows of the same family.")
 
-(defstruct (shortcut (:conc-name)) (states nil) (code 0))
+(defstruct (shortcut (:conc-name)) (state 0) (code 0))
 
 (defun compile-shortcut (&rest l)
   "Compile a shortcut. Usage: (compile-shortcut :control #\t) for a
 keyboard shortcut or (compile-shortcut :mod-1 1) for a mouse
-shortcut. Takes care of CapsLock and NumLock combination."
-  (let* ((k (car (last l)))
-         (mods (butlast l))
-         (states (list (apply #'xlib:make-state-mask mods)
-                       (apply #'xlib:make-state-mask (cons :lock mods))
-                       (apply #'xlib:make-state-mask (cons :mod-2 mods))
-                       (apply #'xlib:make-state-mask (append '(:lock :mod-2) mods)))))
+shortcut."
+  (let ((k (car (last l)))
+        (state (apply #'xlib:make-state-mask (butlast l))))
     (if (characterp k)
         (let ((code (car (last (multiple-value-list
                                 (xlib:keysym->keycodes *display* (car (xlib:character->keysyms k))))))))
-          (make-shortcut :states states :code code))
-        (make-shortcut :states states :code k))))
+          (make-shortcut :state state :code code))
+        (make-shortcut :state state :code k))))
 
-(defun sc= (sc state code) (and (code sc) (= (code sc) code) (member state (states sc))))
+(defun sc= (sc state code) (and (= code (code sc)) (= state (state sc))))
 (defun sc-equal (sc1 sc2) (equalp sc1 sc2))
 
 (eval-when (:compile-toplevel :load-toplevel)
@@ -423,21 +419,26 @@ don't contain `sofar'."
   (xlib:send-event window :key-press (xlib:make-event-mask :key-press)
                           :window window
                           :code (code *prefix*)
-                          :state (first (states *prefix*))))
+                          :state (state *prefix*)))
 
 (defun grab-it (window shortcut &key inverse-p)
-  "On WINDOW, grab a given key or button SHORTCUT in all its
-states. Use :inverse-p key to ungrab."
-  (let ((code (code shortcut)))
+  "On WINDOW, grab a given key or button SHORTCUT. Use :inverse-p key
+to ungrab. Takes care of CapsLock and NumLock states combination."
+  (let ((caps-num-lock-masks (list 0
+                                   (xlib:make-state-mask :lock)
+                                   (xlib:make-state-mask :mod-2)
+                                   (xlib:make-state-mask :lock :mod-2)))
+        (code (code shortcut))
+        (state (state shortcut)))
     (if (< code 4)                      ;it's a mouse button
         (if inverse-p
-            (dolist (s (states shortcut))
-              (xlib:ungrab-button window code :modifiers s))
-            (dolist (s (states shortcut))
-              (xlib:grab-button window code '(:button-press) :modifiers s)))
+            (dolist (mask caps-num-lock-masks)
+              (xlib:ungrab-button window code :modifiers (logior state mask)))
+            (dolist (mask caps-num-lock-masks)
+              (xlib:grab-button window code '(:button-press) :modifiers (logior state mask))))
         (let ((grab/ungrab (if inverse-p #'xlib:ungrab-key #'xlib:grab-key)))
-          (dolist (s (states shortcut))
-            (funcall grab/ungrab window code :modifiers s))))))
+          (dolist (mask caps-num-lock-masks)
+            (funcall grab/ungrab window code :modifiers (logior state mask)))))))
 
 (defun grab-all ()
   "Grab prefix and mouse buttons on root."
