@@ -503,15 +503,15 @@ the window manager."
 (defvar last-x nil)
 (defvar last-y nil)
 (defvar last-motion nil)
-(defvar waiting-shortcut nil)
+(defvar prefix-waiting nil)
 
 (defun funcall-shortcut (state code alist)
-  (let ((fn  (cdr (assoc-if #'(lambda (sc) (sc= sc state code)) alist))))
+  (let ((fn (cdr (assoc-if #'(lambda (sc) (sc= sc state code)) alist))))
     (when (functionp fn) (funcall fn))))
 
 (defhandler :key-press (state code)
   (unless (is-modifier code)
-    (cond (waiting-shortcut
+    (cond (prefix-waiting
            (cond ((sc= *quit* state code) 'quit)
                  (t
                   (cond ((sc= *prefix* state code) (focus *last*))
@@ -519,11 +519,11 @@ the window manager."
                         (t (funcall-shortcut state code *prefix-shortcuts*)))
                   (xlib:ungrab-keyboard *display*)
                   (ungrab-mouse)
-                  (setf waiting-shortcut nil))))
+                  (setf prefix-waiting nil))))
           ((sc= *prefix* state code)
            (xlib:grab-keyboard *root*)
            (grab-mouse *root* nil)
-           (setf waiting-shortcut t))
+           (setf prefix-waiting t))
           (t (funcall-shortcut state code *direct-shortcuts*)))))
 
 ;; In the two following handlers, the top `window' binding is required
