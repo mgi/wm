@@ -73,10 +73,10 @@ shortcut."
     (if (characterp k)
         (let ((code (car (last (multiple-value-list
                                 (xlib:keysym->keycodes *display* (car (xlib:character->keysyms k))))))))
-          (make-shortcut :state state :code code))
+          (when code (make-shortcut :state state :code code)))
         (make-shortcut :state state :code k))))
 
-(defun sc= (sc state code) (and (code sc) (= code (code sc)) (= state (state sc))))
+(defun sc= (sc state code) (and (= code (code sc)) (= state (state sc))))
 (defun sc-equal (sc1 sc2) (equalp sc1 sc2))
 
 (eval-when (:compile-toplevel :load-toplevel)
@@ -85,9 +85,8 @@ shortcut."
       `(let* ((,sc (compile-shortcut ,@key))
               (,asc (assoc ,sc ,alist-name :test #'sc-equal)))
          (labels ((,fn () ,@body))
-           (if ,asc
-               (rplacd ,asc #',fn)
-               (push (cons ,sc #',fn) ,alist-name)))))))
+           (cond (,asc (rplacd ,asc #',fn))
+                 (,sc (push (cons ,sc #',fn) ,alist-name))))))))
 
 (defmacro define-prefix-shortcut (key &body body)
   "Define a new prefix shortcut. The key in this alist is a shortcut
