@@ -419,6 +419,9 @@ don't contain `sofar'."
 (defun send-prefix (window)
   (xlib:send-event window :key-press (xlib:make-event-mask :key-press)
                           :window window
+                          :x 0 :y 0
+                          :root *root*
+                          :root-x 0 :root-y 0
                           :code (code *prefix*)
                           :state (state *prefix*)))
 
