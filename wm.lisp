@@ -62,27 +62,29 @@ argument."
                           #'(lambda (w) (search "Gimp" (xclass w) :test #'char-equal)))
   "List of predicates to make some windows of the same family.")
 
-(defstruct (shortcut (:conc-name)) (state 0) (code 0))
+(defstruct (shortcut (:conc-name)) window (state 0) (code 0))
 
-(defun compile-shortcut (&rest l)
-  "Compile a shortcut. Usage: (compile-shortcut :control #\t) for a
-keyboard shortcut or (compile-shortcut :mod-1 1) for a mouse
-shortcut."
+(defun compile-shortcut (window &rest l)
+  "Compile a shortcut on WINDOW. Usage: (compile-shortcut *root*
+:control #\t) for a keyboard shortcut or (compile-shortcut *root*
+:mod-1 1) for a mouse shortcut."
   (let ((k (car (last l)))
         (state (apply #'xlib:make-state-mask (butlast l))))
     (if (characterp k)
         (let ((code (car (last (multiple-value-list
                                 (xlib:keysym->keycodes *display* (car (xlib:character->keysyms k))))))))
-          (when code (make-shortcut :state state :code code)))
-        (make-shortcut :state state :code k))))
+          (when code (make-shortcut :window window :state state :code code)))
+        (make-shortcut :window window :state state :code k))))
 
-(defun sc= (sc state code) (and (= code (code sc)) (= state (state sc))))
+(defun sc= (sc state code &optional window)
+  (and (or (not window) (win= window (window sc)))
+       (= code (code sc)) (= state (state sc))))
 (defun sc-equal (sc1 sc2) (equalp sc1 sc2))
 
 (eval-when (:compile-toplevel :load-toplevel)
-  (defun %gen-shorcut-code (alist-name key body)
+  (defun %gen-shorcut-code (alist-name window-name key body)
     (with-gensyms (sc asc fn)
-      `(let* ((,sc (compile-shortcut ,@key))
+      `(let* ((,sc (compile-shortcut ,window-name ,@key))
               (,asc (assoc ,sc ,alist-name :test #'sc-equal)))
          (labels ((,fn () ,@body))
            (cond (,asc (rplacd ,asc #',fn))
@@ -91,11 +93,11 @@ shortcut."
 (defmacro define-prefix-shortcut (key &body body)
   "Define a new prefix shortcut. The key in this alist is a shortcut
   structure and the associated value is a lambda without argument."
-  (%gen-shorcut-code '*prefix-shortcuts* key body))
+  (%gen-shorcut-code '*prefix-shortcuts* '*root* key body))
 
 (defmacro define-direct-shortcut (key &body body)
   "Define a new direct shortcut."
-  (%gen-shorcut-code '*direct-shortcuts* key body))
+  (%gen-shorcut-code '*direct-shortcuts* '*root* key body))
 
 (defun %group (window char)
   (labels ((set-char (window)
@@ -338,8 +340,8 @@ convention."
   (member keycode *mods-code*))
 
 ;;; App launcher, class finder, etc.
-(defparameter *abort* (compile-shortcut :control #\g))
-(defparameter *this* (compile-shortcut #\Return)
+(defparameter *abort* (compile-shortcut *root* :control #\g))
+(defparameter *this* (compile-shortcut *root* #\Return)
   "Validate THIS value even if it is ambiguous on more than one.")
 
 (defun single-p (list) (and (consp list) (null (cdr list))))
@@ -407,12 +409,12 @@ don't contain `sofar'."
   (xlib:warp-pointer *root* (xlib:screen-width *screen*) (xlib:screen-height *screen*)))
 
 ;;; Default keyboard prefix and mouse shorcuts
-(defparameter *prefix* (compile-shortcut :control #\t) "Prefix for shortcuts")
-(defparameter *quit* (compile-shortcut :shift #\q) "Shortcut to quit")
-(defparameter *move* (compile-shortcut :mod-1 1) "Mouse button to move a window")
-(defparameter *center-resize* (compile-shortcut :mod-1 2) "Mouse button to resize a window from its center")
-(defparameter *resize* (compile-shortcut :mod-1 3) "Mouse button to resize a window")
-(defparameter *close* (compile-shortcut :mod-1 :shift 3) "Mouse button to close a window")
+(defparameter *prefix* (compile-shortcut *root* :control #\t) "Prefix for shortcuts")
+(defparameter *quit* (compile-shortcut *root* :shift #\q) "Shortcut to quit")
+(defparameter *move* (compile-shortcut *root* :mod-1 1) "Mouse button to move a window")
+(defparameter *center-resize* (compile-shortcut *root* :mod-1 2) "Mouse button to resize a window from its center")
+(defparameter *resize* (compile-shortcut *root* :mod-1 3) "Mouse button to resize a window")
+(defparameter *close* (compile-shortcut *root* :mod-1 :shift 3) "Mouse button to close a window")
 
 (defun send-prefix (window)
   (xlib:send-event window :key-press (xlib:make-event-mask :key-press)
@@ -420,13 +422,14 @@ don't contain `sofar'."
                           :code (code *prefix*)
                           :state (state *prefix*)))
 
-(defun grab-it (window shortcut &key inverse-p)
-  "On WINDOW, grab a given key or button SHORTCUT. Use :inverse-p key
+(defun grab-it (shortcut &key inverse-p)
+  "Grab a given key or button SHORTCUT. Use :inverse-p key
 to ungrab. Takes care of CapsLock and NumLock states combination."
   (let ((caps-num-lock-masks (list 0
                                    (xlib:make-state-mask :lock)
                                    (xlib:make-state-mask :mod-2)
                                    (xlib:make-state-mask :lock :mod-2)))
+	(window (window shortcut))
         (code (code shortcut))
         (state (state shortcut)))
     (if (< code 4)                      ;it's a mouse button
@@ -441,16 +444,16 @@ to ungrab. Takes care of CapsLock and NumLock states combination."
 
 (defun grab-all ()
   "Grab prefix and mouse buttons on root."
-  (grab-it *root* *prefix*)
-  (mapcar #'(lambda (x) (grab-it *root* (car x))) *direct-shortcuts*)
+  (grab-it *prefix*)
+  (mapcar #'(lambda (x) (grab-it (car x))) *direct-shortcuts*)
   (dolist (b (list *move* *center-resize* *resize* *close*))
-    (grab-it *root* b)))
+    (grab-it b)))
 
 (defun ungrab-all ()
   (dolist (b (list *move* *center-resize* *resize* *close*))
-    (grab-it *root* b :inverse-p t))
-  (mapcar #'(lambda (x) (grab-it *root* (car x) :inverse-p t)) *direct-shortcuts*)
-  (grab-it *root* *prefix* :inverse-p t))
+    (grab-it b :inverse-p t))
+  (mapcar #'(lambda (x) (grab-it (car x) :inverse-p t)) *direct-shortcuts*)
+  (grab-it *prefix* :inverse-p t))
 
 (defparameter *cursor*
   (let* ((white (xlib:make-color :red 1.0 :green 1.0 :blue 1.0))
@@ -505,18 +508,18 @@ the window manager."
 (defvar last-motion nil)
 (defvar prefix-waiting nil)
 
-(defun funcall-shortcut (state code alist)
-  (let ((fn (cdr (assoc-if #'(lambda (sc) (sc= sc state code)) alist))))
+(defun funcall-shortcut (state code window alist)
+  (let ((fn (cdr (assoc-if #'(lambda (sc) (sc= sc state code window)) alist))))
     (when (functionp fn) (funcall fn))))
 
-(defhandler :key-press (state code)
+(defhandler :key-press (window state code)
   (unless (is-modifier code)
     (cond (prefix-waiting
            (cond ((sc= *quit* state code) 'quit)
                  (t
                   (cond ((sc= *prefix* state code) (focus *last*))
                         ((= code (code *prefix*)) (send-prefix *curr*))
-                        (t (funcall-shortcut state code *prefix-shortcuts*)))
+                        (t (funcall-shortcut state code window *prefix-shortcuts*)))
                   (xlib:ungrab-keyboard *display*)
                   (ungrab-mouse)
                   (setf prefix-waiting nil))))
@@ -524,7 +527,7 @@ the window manager."
            (xlib:grab-keyboard *root*)
            (grab-mouse *root* nil)
            (setf prefix-waiting t))
-          (t (funcall-shortcut state code *direct-shortcuts*)))))
+          (t (funcall-shortcut state code window *direct-shortcuts*)))))
 
 ;; In the two following handlers, the top `window' binding is required
 ;; else we're using a fresh instance of window without its plist set
