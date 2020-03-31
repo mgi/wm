@@ -275,9 +275,6 @@ the window to be focused."
         (move *curr* :x (- (truncate sw 2) (truncate w 2))
                      :y (- (truncate sh 2) (truncate h 2)))))))
 
-(defun wash-sticky-position ()
-  (unpin *curr*))
-
 (defun split-string (string &optional (character #\Space))
   "Returns a list of substrings of string
 divided by ONE space each.
@@ -503,7 +500,6 @@ the window manager."
 (define-prefix-shortcut (#\.) (center))
 (define-prefix-shortcut (:shift #\.) (center))
 (define-prefix-shortcut (:shift #\p) (toggle-pin))
-(define-prefix-shortcut (:shift #\w) (wash-sticky-position))
 
 (defvar last-button nil)
 (defvar last-x nil)

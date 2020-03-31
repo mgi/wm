@@ -65,7 +65,6 @@
    - =.= centers the current window;
    - =b= banish mouse pointer;
    - =P= pin/unpin the current window (it won't be movable/resizable);
-   - =W= clear any sticky position (pinned or center-pinned);
    - =R= reloads the configuration file;
    - =Q= quits the window manager.
 
